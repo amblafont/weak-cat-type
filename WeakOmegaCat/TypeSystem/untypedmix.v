@@ -90,7 +90,7 @@ Proof. exact: nth_map. Qed.
 
 (* Fin Context.v *)
 
-(*
+(**
 **************************
 
 Compléments Autosubst
@@ -251,6 +251,7 @@ Reserved Notation "Gamma |- A"
 
 
 Definition ctx := list term.
+
 
 
 
@@ -501,7 +502,7 @@ Lemma weakening_type Γ A B (wA: Γ |- A) (wB: Γ |- B)  : (B::Γ) |- A.[ren(+1)
     * now constructor.
 Qed.
 
-Lemma lemma61 Γ t A (w:Γ |- t : A) : wfTy Γ A.
+Lemma ty_wfty Γ t A (w:Γ |- t : A) : wfTy Γ A.
   (* * wfCtx Γ) . *)
         (* with lemma61' Γ A (wA: Γ |- A)   : wfCtx Γ. *)
   elim:Γ  A t /w.
@@ -515,7 +516,7 @@ Lemma lemma61 Γ t A (w:Γ |- t : A) : wfTy Γ A.
      have wfΓB : wfCtx (B::Γ) by constructor.
      (* split => //. *)
      now apply :weakening_type.
-Qed.
+Defined.
 
 Lemma ty_wfctxt Γ t A (w:Γ |- t : A) : wfCtx Γ.
 Proof.
@@ -610,9 +611,60 @@ Proof.
   inversion_clear wA.
   congr tyAr.
   +  apply:IHA1.
-     apply:lemma61; eauto.
+     apply:ty_wfty; eauto.
   + apply: (subst_term_rien  ) => //; eauto.
   + apply: (subst_term_rien  ) => //; eauto.
+Qed.
+
+(* *****************
+
+Composition des substitutions
+
+***************** *)
+Definition Ids_nat : Ids nat := id. 
+
+(* σ o τ *)
+Definition comp_subst (σ τ:substs) :=
+  mkseq ( ((get σ) >> (get τ))) (size σ).
+Lemma comp_subst_eq_aux σ τ t:
+  [seq (get σ >> get τ) i | i <- iota 0 (size σ)] = [seq ((t :: σ)``_i).[get τ] | i <- iota 1 (size σ)].
+  rewrite (iota_addl (1) (0)).
+  rewrite -map_comp.
+  cbn.
+  apply:eq_map.
+  move => n //=.
+Qed.
+Lemma comp_subst_eq σ τ t : comp_subst σ τ = [seq (get (t :: σ) >> get τ) i | i <- iota 1 (size σ)].
+  apply:comp_subst_eq_aux.
+  Qed.
+
+
+Lemma wf_comp_subst Δ Γ E (σ τ : substs) (wσ : ty_substs Δ Γ σ) (wτ : ty_substs E Δ τ) :
+  ty_substs E Γ (comp_subst σ τ).
+Proof.
+  induction wσ.
+  - constructor.
+    apply :lemma622; eauto.
+  - apply :tysNext => //.
+    (* induction wτ as [|E A t τ]. *)
+    + 
+      (* rewrite -cat_rcons -cats1 => /IH w. *)
+      now rewrite -comp_subst_eq.
+    + have tyA := lemma8 wτ t0.
+      (* set t' := (t in E|- t:_). *)
+      (* have et' : t' = t.[get τ] by reflexivity. *)
+      refine (eq_rect _ (fun z => E |- _ : z) tyA _ _).
+      asimpl.
+      apply:subst_typ_rien .
+      exact :w.
+      move => n ltn /=.
+
+      have ltnσ:n < size σ by rewrite (size_ty_substs wσ).
+      
+      rewrite (get_map_gen(H:=Ids_nat)) ?size_iota //.
+      cbn.
+      rewrite [(iota _ _)``_n]/get.
+      rewrite nth_iota //.
 Qed.
 
 (* *************
@@ -621,7 +673,6 @@ substitution identité
 
  ************** *)
 
-Instance Ids_nat : Ids nat := id. 
 
 Lemma cat_wfctxt Γ Δ (w:wfCtx (Δ++Γ)) : wfCtx Γ.
   elim:Δ Γ w => //.
@@ -632,21 +683,16 @@ Lemma cat_wfctxt Γ Δ (w:wfCtx (Δ++Γ)) : wfCtx Γ.
   eauto.
 Qed.
 
+
 (* Lemma wfCtx_rect2 :forall P : forall l : seq term, Type, *)
 (* P [::] -> *)
 (* (forall (l : seq term) (t:term), P l -> P (t::l)) -> P *)
-Lemma id_subst Γ Δ (w:wfCtx( Δ++Γ))  : ty_substs (Δ++Γ) Γ
-                                           (mkseq (fun n => ids (n+size Δ)) (size Γ)).
-  elim:Γ Δ w.
-  - now constructor.
-  - intros A Γ IH Δ w.
-    apply :tysNext.
-
-    + specialize (IH (Δ ++ A::nil)).
-      move:w.
-      rewrite -cat_rcons -cats1 => /IH w.
-      refine (eq_rect _ (fun z => ty_substs _ _ z) w _ _).
+Lemma eq_subst B (Γ Δ:list B) A :
+  mkseq (fun n : nat => ids (n + size (Δ ++ [:: A]))) (size Γ) =
+  [seq ids (n + size Δ) | n <- iota 1 (size Γ)].
+  (* TODO : factoriser avec comp_subst_eq_aux *)
       cbn.
+      rewrite -/(comp_subst _ _).
       rewrite /mkseq.
       cbn.
       rewrite (iota_addl (1) (0)).
@@ -658,6 +704,18 @@ Lemma id_subst Γ Δ (w:wfCtx( Δ++Γ))  : ty_substs (Δ++Γ) Γ
       congr ids.
       rewrite -addnE addnA addnC.
       reflexivity.
+Qed.
+Lemma id_subst Γ Δ (w:wfCtx( Δ++Γ))  : ty_substs (Δ++Γ) Γ
+                                           (mkseq (fun n => ids (n+size Δ)) (size Γ)).
+  elim:Γ Δ w.
+  - now constructor.
+  - intros A Γ IH Δ w.
+    apply :tysNext.
+
+    + specialize (IH (Δ ++ A::nil)).
+      move:w.
+      rewrite -cat_rcons -cats1 => /IH w.
+      now rewrite -(eq_subst Γ Δ A).
     + move/cat_wfctxt:w.
       now inversion 1.
     + cbn.
@@ -673,7 +731,7 @@ Lemma id_subst Γ Δ (w:wfCtx( Δ++Γ))  : ty_substs (Δ++Γ) Γ
         have wA : Γ |- A by inversion w.
         apply:(subst_typ_rien wA).
         move => n ltn.
-        rewrite get_map_gen.
+        rewrite (get_map_gen (H:=Ids_nat)).
         cbn.
         rewrite -addnE addn0.
         congr ids.
@@ -699,63 +757,14 @@ Lemma id_subst Γ Δ (w:wfCtx( Δ++Γ))  : ty_substs (Δ++Γ) Γ
         inversion w; eauto.
         move => n ltn.
         cbn.
-        rewrite get_map_gen ?size_iota //.
+        rewrite (get_map_gen (H:=Ids_nat)) ?size_iota //.
         cbn.
-        rewrite get_map_gen ?size_iota //.
+        rewrite (get_map_gen  (H:=Ids_nat))?size_iota //.
         asimpl.
         congr ids.
 Qed.
 
 
-
-(* *****************
-
-Composition des substitutions
-
-***************** *)
-
-(* σ o τ *)
-Definition comp_subst (σ τ:substs) :=
-  mkseq ( ((get σ) >> (get τ))) (size σ).
-
-
-Lemma wf_comp_subst Δ Γ E (σ τ : substs) (wσ : ty_substs Δ Γ σ) (wτ : ty_substs E Δ τ) :
-  ty_substs E Γ (comp_subst σ τ).
-Proof.
-  induction wσ.
-  - constructor.
-    apply :lemma622; eauto.
-  - apply :tysNext => //.
-    (* induction wτ as [|E A t τ]. *)
-    + 
-      (* rewrite -cat_rcons -cats1 => /IH w. *)
-      (* preuve recopiée de la substitution identité
-TODO : factoriser *)
-      refine (eq_rect _ (fun z => ty_substs _ _ z) IHwσ _ _).
-      rewrite /comp_subst.
-      rewrite /mkseq.
-      cbn.
-      rewrite (iota_addl (1) (0)).
-      rewrite -map_comp.
-      cbn.
-      apply:eq_map.
-      move => n //=.
-    + have tyA := lemma8 wτ t0.
-      (* set t' := (t in E|- t:_). *)
-      (* have et' : t' = t.[get τ] by reflexivity. *)
-      refine (eq_rect _ (fun z => E |- _ : z) tyA _ _).
-      asimpl.
-      apply:subst_typ_rien .
-      exact :w.
-      move => n ltn /=.
-
-      have ltnσ:n < size σ by rewrite (size_ty_substs wσ).
-      
-      rewrite get_map_gen ?size_iota //.
-      cbn.
-      rewrite [(iota _ _)``_n]/get.
-      rewrite nth_iota //.
-Qed.
 
 
 (* ****************
@@ -917,10 +926,232 @@ Eval compute in bwfCtxPs [:: tyUnit].
 notamment le foncteur S_glob -> Type
 un objet de S_glob est { Γ : ctxt & wfCtx Γ } *)
 
-Definition needed := @wfCtx_mut (fun _ _ => Type).
+(* Definition needed := @wfCtx_mut (fun _ _ => Type). *)
+Module test.
+Parameter (Tstar:Type).
+
+(*
+Inductive ty : ctx -> term -> term  -> Type :=
+| ty_var0 Γ A : wfCtx (A :: Γ) -> ty  (A::Γ) A.[ren(+1)] (ids 0)
+| ty_termS Γ s A B : Γ |- s : A -> wfTy Γ B -> (B::Γ) |- s.[ren(+1) ] : A.[ren(+1)]
+with wfCtx : ctx -> Type :=
+     | wfEmpty : wfCtx nil
+     | wfCtxNext Γ A :  wfCtx Γ -> wfTy Γ A -> wfCtx (A::Γ)
+with wfTy :  ctx ->   term -> Type :=
+  | wfUnit Γ : wfCtx Γ -> Γ |- tyUnit
+  | wfAr Γ A t u : Γ |- t : A -> Γ |- u : A -> Γ |- (tyAr A t u)
+where "Gamma |- A" := (wfTy Gamma A) and
+ "Gamma |- s : A" := (ty Gamma A s).
+
+Scheme wfCtx_mut := Induction for wfCtx Sort Type
+with wfTy_mut := Induction for wfTy Sort Type
+with ty_mut := Induction for ty Sort Type.
+
+*)
+Axiom myadmit : forall {A:Type} , A.
+Definition transport {A : Type} (P : A -> Type) {x y : A} (p : x = y) (u : P x) : P y :=
+  eq_rect x P u y p.
+
+Definition ap := f_equal.
+
+Lemma uniq_term Γ A t (e e':Γ|- t:A) : e = e'.
+  induction e.
+  - revert w.
+    (*
+    refine (_ (match e' as e' in c |- t' : A'  return
+                match e' as c   with
+                | ty_var0 Γ A w' => forall (w:wfCtx (A::Γ)), ty_var0 w = ty_var0 w'
+                |ty_termS Γ s A B ws wB => forall (w':wfCtx (B::Γ)), False
+                end 
+             with
+               ty_var0 Γ A w => _
+             |ty_termS Γ s A B ws wB => _
+             end) ).
+    destruct e'.
+*)
+    (*
+    refine ((match e' as e' in c |- t' : A'  return
+                   forall w:wfCtx c,
+                match c as c return (c|- t':A' -> forall (w:wfCtx c), c|-t':A' -> Type) with
+                | A::Γ => fun e'' w x => x = e''
+                | _ => fun _ _ _=> True
+                end e' w (ty_var0 w)
+                    
+             with
+               ty_var0 Γ A w => _
+             |ty_termS Γ s A B ws wB => _
+             end) ).
+*)
+    generalize (erefl  A.[ren(+1)]).
+    refine ((match e' as e' in c |- t' : A'  return
+                   
+                match c as c return (c|- t':A' -> Type) with
+                | A::Γ => fun e'' => forall (w:wfCtx (A::Γ)), ty_var0 w = e''
+                | _ => fun _ => True
+                end e'
+             with
+               ty_var0 Γ A w => _
+             |ty_termS Γ s A B ws wB => _
+             end) ).
+    subst.
+
+Lemma uniq_wfctxt Γ (e e':wfCtx Γ) : e = e' with
+ uniq_wfty Γ A (e e':Γ|- A) : e = e'.
+  destruct e.
+  -
+    refine ((match e' as e' in wfCtx c return
+                match c with
+                        | nil =>  fun (x:wfCtx nil) (e':wfCtx nil) => x = e'
+                        | t::q => fun _ _ => True
+                end
+                wfEmpty e'
+          with
+            wfEmpty => _
+          | _ => I
+          end) ).
+  reflexivity.
+  -  revert w.
+    refine ((match e' as e' in wfCtx c return
+                match c with
+                | A::Γ => fun e' => forall (w:Γ|-A), wfCtxNext w = e'
+                | _ => fun _ => True
+                end e'
+             with
+               wfEmpty => I
+             | wfCtxNext Γ A w => _
+             end) ).
+    move => w'.
+    f_equal.
+    apply:uniq_wfty.
+  -  destruct e.
+     + revert w.
+    refine ((match e' as e' in Γ |- A return
+                match A with
+                | tyUnit => fun e' => forall (w:wfCtx  Γ), wfUnit w =e'
+                | _ => fun _ => True
+                end e'
+             with
+               wfUnit _ _  => _
+             | _ => I
+             end) ).
+    move => ?.
+    f_equal.
+    apply:uniq_wfctxt.
+    +
+     exact:myadmit.
+     Qed.
+    subst.
+  destruct e'.
+  inversion e'.
+
+Admitted.
+
+
+(* avec l'univalence, se déduit des deux lemmes précéddents *)
+Lemma uniq_wfctxt_wfty Γ A (w w': Γ |- A) :
+  (uniq_wfctxt (wfty_wfctxt w) (wfty_wfctxt w')) =
+   ap (@wfty_wfctxt Γ A) (uniq_wfty w w') .
+  Admitted.
+
+
+Section testtransport.
+  Variables (A:Type) (B:A -> Type)( f:forall a:A, B a -> Type) (a a' : A) (b:B a) (x:f b)
+  (e:a=a').
+
+  Definition transport_dep : f (transport e b).
+  destruct e.
+  exact x.
+  Defined.
+End testtransport.
+Section testtransport2.
+  Variables (A:Type) (A':Type) (C:A -> A') (B: A' -> Type) ( f:forall a:A, B (C a) -> Type)
+            (a a' : A) (b:B (C a)) (x:f b) (e:a=a') (ec:C a = C a').
+
+  Definition transport_dep2 : f (transport ec b).
+    refine (match ec with _ => _ end).
+    Abort.
+  (* je ne pense pas que ce soit possible *)
+End testtransport2.
+
+Lemma transportyop Γ A  (P: wfCtx Γ -> Type)
+      (wA wA':Γ|-A) rΓ:
+    (transport (P:=[eta P ]) (uniq_wfctxt (wfty_wfctxt wA) (wfty_wfctxt wA')) rΓ)
+  =
+      (transport (P:=fun w => P  (wfty_wfctxt w)) (uniq_wfty wA wA') rΓ).
+  have h := uniq_wfctxt_wfty wA wA'.
+  unfold ap in h.
+  unfold f_equal in h.
+  revert h.
+  destruct (uniq_wfty wA wA'); cbn.
+  move => -> //.
+Qed.
+Arguments transport {A} P {x y} _ _.
+Definition wfCtx_mut_orig := @wfCtx_mut.
+Axiom wfCtx_mut : (
+forall (P : forall c : ctx, wfCtx c -> Type) (P0 : forall (c : ctx) (t : term) (w: c |- t), P c (wfty_wfctxt w) -> Type)
+  (Pt : forall (Γ : ctx) (A t  : term) (wt: Γ |- t : A), forall (wΓ: P Γ _), P0 Γ A (ty_wfty wt) wΓ -> Type),
+P [::] wfEmpty ->
+(forall (Γ : ctx) (A : term) (* (w : wfCtx Γ), *),
+    forall w0 : Γ |- A,forall (γ : P Γ _),  P0 Γ A w0 γ -> P (A :: Γ) (wfCtxNext  w0)) ->
+(forall (Γ : ctx) (w : wfCtx Γ) (γ: P Γ w) , P0 Γ tyUnit (wfUnit w) γ) ->
+(forall (Γ : ctx) (A t u : term) (w0 : Γ |- t : A) (w1 : Γ |- u : A)
+   (wA := ty_wfty w0)
+   (rΓ : P Γ (wfty_wfctxt wA))
+    (rA : P0 Γ A wA rΓ)
+    (* (rA' : _), *)
+    (rA' := transport_dep (f:=P0 Γ A) rA (uniq_wfty _ _))
+    (Pt'' :=  (Pt Γ A u w1 (transport (fun z => P Γ z)
+                                        (uniq_wfctxt
+                                             (wfty_wfctxt wA)
+                                             (wfty_wfctxt (ty_wfty w1))) 
+                                        rΓ)))
+ (* "P0 Γ A (ty_wfty w1) (transport (uniq_wfctxt (wfty_wfctxt wA) (wfty_wfctxt (ty_wfty w1))) rΓ)" *)
+    (Pt' := transport
+              (fun z => P0 Γ A (ty_wfty w1) z -> Type)
+              (transportyop (P:=@P Γ) (ty_wfty w1) rΓ ) (Pt Γ A u w1 (transport _
+                                        (uniq_wfctxt
+                                             (wfty_wfctxt wA)
+                                             (wfty_wfctxt (ty_wfty w1))) 
+                                        rΓ))),
+    (*
+    (Pt' := transport
+              (fun z => P0 Γ A (ty_wfty w1) (transport _ z rΓ) -> Type)
+              (uniq_wfctxt_wfty wA (ty_wfty w1)) (Pt Γ A u w1 (transport _
+                                        (uniq_wfctxt
+                                             (wfty_wfctxt wA)
+                                             (wfty_wfctxt (ty_wfty w1))) 
+                                        rΓ))),
+*)
+
+              (* P0 Γ A (ty_wfty w1) (transport (uniq_wfctxt *)
+              (*                                (wfty_wfctxt wA) *)
+              (*                                (wfty_wfctxt (ty_wfty w1))) *)
+              (*                             rΓ)), *)
+    Pt Γ A t w0 rΓ rA -> Pt' rA' ->
+    (* Pt Γ A u w1 (transport *)
+    (*                                     (uniq_wfctxt *)
+    (*                                          (wfty_wfctxt wA) *)
+    (*                                          (wfty_wfctxt (ty_wfty w1)))  *)
+    (*                                     rΓ) *)
+    (*                         rA' -> *)
+                                        (* (transport (uniq_wfctxt_wfty _ _)rA') -> *)
+                            (* (transport (uniq_wfctxt _ _) rA') -> *)
+                            (* (transport (uniq_wfctxt _ _) rA) -> *)
+    P0 Γ (tyAr A t u) (wfAr w0 w1) (transport _ (uniq_wfctxt _ _) rΓ)) ->
+(*(forall (Γ : seq term) (A : term) (w : wfCtx (A :: Γ)),
+ P (A :: Γ) w -> P1 (A :: Γ) A.[ren (+1)] (ids 0) (ty_var0 w)) ->
+(forall (Γ : ctx) (s A B : term) (t : Γ |- s : A),
+ P1 Γ A s t -> forall w : Γ |- B, P0 Γ B w -> P1 (B :: Γ) A.[ren (+1)] s.[ren (+1)] (ty_termS t w)) ->*)
+forall (c : ctx) (w : wfCtx c), P c w).
+Definition needed   := @wfCtx_mut (fun _ _ => Type) (fun _ _ _ γ => γ -> Type) (fun _ _ _ _ => Type) unit 
+(fun _ _ _ d  A => sigT A) (fun _ _ _ _ => Tstar). 
 Definition tneeded := ltac: (match (type of needed) with ?x => set (y:=x); cbn in y; exact y end).
 Goal True.
  (match (type of needed) with ?x => set (y:=x); cbn in y end).
+ P0 := fun c _ _ => P c -> Type
+
+                         Γ A t u (semΓ : Type) (semA : semΓ -> Type) (semt :forall γ:semΓ, semA γ)
+                         (semu :∀ γ:semΓ, semA γ) : semΓ -> Type
  (*
 
    forall (P : forall (l : seq term) (t : term), l |- t -> Type)
