@@ -21,9 +21,12 @@ Inductive Ctx : Type :=
 with Ty : Ctx -> Type :=
      | tyUnit : forall Γ, Ty Γ
      | tyArrow : forall Γ (A:Ty Γ) (t u :  Term A), Ty Γ
+(* with Ty' : forall Γ : Ctx , Ty Γ -> Type := *)
+(*                | alone Γ (B:Ty Γ): Ty (ctxCons Γ B) -> Ty' B *)
 with Term : forall Γ, Ty Γ -> Type :=
    (* | termVar : forall Γ (A:Ty Γ), Var A -> Term  A *)
      | termVar0 : forall Γ  A A',WkTy A A'-> Term (Γ:=(ctxCons Γ A)) A'
+     (* | termVar0' : forall Γ  A A', WkTy A A' -> Term (Γ:=(ctxCons Γ A)) A' *)
      | termWk : forall Γ B A A' , WkTy A A' -> Term (Γ:=Γ) A -> Term
                                                           (Γ:=(ctxCons Γ B))
                                                             A'
@@ -45,8 +48,68 @@ with WkTy : forall Γ Γ', Ty Γ -> Ty Γ' -> Type :=
                   _
                   (termWk Γ B A A' w t)
                   (termWk Γ B A A' w u)
-                ).
+               ).
 
+(* Je voudrais définir maintenant le weakening sur les types par un point fixe *)
+(*
+Definition wkty :=
+  fix wkty Γ (A B :Ty Γ) {struct B} :Ty (ctxCons A)  :=
+    myadmit
+    with wkterm Γ (A B:Ty Γ) (t:Term B) {struct t} : Term (wkty Γ A B) := myadmit
+                                                                 for wkty.
+  induction B.
+  - apply tyUnit.
+  - unshelve eapply tyArrow.
+    apply IHB.
+*)
+
+Scheme wfCtx_mut := Induction for Ctx Sort Type
+with wfTy_mut := Induction for Ty Sort Type
+with ty_mut := Induction for Term Sort Type
+with wkty_mut := Induction for WkTy Sort Type.
+Module CustomInduction.
+  Parameter (Tstar:Type).
+  Axiom wfCtx_mut :
+    (
+      forall (P : forall c : Ctx, Type)
+        (P0 : forall (c : Ctx) (A : Ty c), P c -> Type)
+        (Pt : forall (Γ : Ctx) (A:Ty Γ) (t  : Term A) rΓ , P0 Γ A rΓ -> Type)
+        (Pw : forall (Γ Γ':Ctx) (A : Ty Γ) (A' : Ty Γ') rΓ rΓ' (rA : P0 Γ A rΓ)
+                (rA' : P0 Γ' A' rΓ'), Type),
+        P ctxEmpty ->
+        (* extension des contexte *)
+        forall Pext : (forall (Γ : Ctx) (A : Ty Γ) (* (w : wfCtx Γ), *),
+                  forall (γ : P Γ ),  P0 Γ A γ -> P (ctxCons  A)),
+          (* tyUnit *)
+          (forall (Γ : Ctx)  (γ: P Γ ) , P0 Γ (tyUnit _) γ) ->
+          (* pour la flèche *)
+          (forall (Γ : Ctx) (A:Ty Γ) (t u : Term A)  
+             (rΓ : P Γ )
+             (rA : P0 Γ A rΓ),
+              Pt Γ A t rΓ rA -> Pt Γ A u rΓ  rA-> P0 Γ A rΓ) ->
+          (forall (Γ : Ctx) (A : Ty Γ)
+             (Γ' := ctxCons A)
+             (A': Ty Γ')  (wA : WkTy A A')
+             (rΓ : P Γ) 
+             (rΓ' : P Γ') 
+             (rA : P0 _ A  rΓ)
+             (rA' : P0 _ A' rΓ')
+             (rWa : Pw Γ _ A A' rΓ rΓ' rA rA'),
+              Pt Γ' A' (termVar0 (A:=A) wA ) rΓ' rA')  ->
+          (*
+*)
+          (*
+(forall (Γ : ctx) (s A B : term) (t : Γ |- s : A),
+ P1 Γ A s t -> forall w : Γ |- B, P0 Γ B w -> P1 (B :: Γ) A.[ren (+1)] s.[ren (+1)] (ty_termS t w)) ->
+           *)
+          forall (c : Ctx) , P c ).
+  Definition needed  h := @wfCtx_mut (fun _ _ => Type) (fun _ _ _ => Type) (fun _ _ _ _ => Type) unit h
+                                     (fun _ _ _ => Tstar).
+  Definition tneeded := ltac: (match (type of needed) with ?x => set (y:=x); cbn in y; exact y end).
+  Goal True.
+    (match (type of needed) with ?x => set (y:=x); cbn in y end).
+    P0 := fun c _ _ => P c -> Type
+End CustomInduction.
 Unset Implicit Arguments.
 Axiom expladmit : (forall A,A).
 Inductive substs : Ctx -> Ctx -> Type :=

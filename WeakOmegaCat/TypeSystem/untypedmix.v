@@ -7,6 +7,8 @@ Require Import Autosubst.Autosubst.
 
 Γ |- dans la substitution du contexte vide
 
+TODO :  remplacer la r_gle Γ,x:A |- en prémisse par Γ |- A
+
 *)
 
 Require Import mathcomp.ssreflect.ssreflect.
@@ -98,11 +100,13 @@ Compléments Autosubst
 **************************
  *)
 
+Class Notunit (term : Type) := notunit : { s : term * term & fst s <> snd s}.
 (* injectivité de ids (ids est l'injection des indices de De Bruijn dans les termes) *)
 Lemma injids:
 forall (term : Type) (Ids_term : Ids term) (Rename_term : Rename term) (Subst_term : Subst term),
-  SubstLemmas term -> forall (i j : nat) (s s' :term) (e:s <> s') (ei:ids i = ids j) , i = j.
+  SubstLemmas term -> Notunit term -> forall (i j : nat) (ei:ids i = ids j) , i = j.
   intros.
+  case:notunit => [[s s'] /= es]. 
   set sigma := fun n => if n == i then s else if n == j then s' else ids n .
   have ei' : (ids i).[sigma] = (ids j).[sigma] by rewrite ei.
   move:ei'.
@@ -113,7 +117,7 @@ Qed.
 
 Lemma noidsren:
 forall (term : Type) (Ids_term : Ids term) (Rename_term : Rename term) (Subst_term : Subst term),
-  SubstLemmas term -> forall (s : term)  (u u':term) (eu:u<>u'), ~s.[ren (+1)] = ids 0.
+  SubstLemmas term -> Notunit term -> forall (s : term) , ~s.[ren (+1)] = ids 0.
 intros.
 set a:= (a in a=_).
 set b:= (b in _=b).
@@ -128,11 +132,13 @@ subst s.
 asimpl in hab.
 revert hab.
 cbn.
-move/(injids _ eu).
+move/(injids _ ).
 discriminate.
 Qed.
 
 (* Fin compléments *)
+
+
 
 (* Examples/Poplmark.v *)
 Notation "Gamma `_ x" := (dget Gamma x).
@@ -153,6 +159,13 @@ Instance Rename_term : Rename term. derive. Defined.
 Instance Subst_term : Subst term. derive. Defined.
 
 Instance SubstLemmas_term : SubstLemmas term. derive. Qed.
+
+Instance Notunit_term : Notunit term.
+exists (ids 0,ids 1).
+discriminate.
+Defined.
+
+
 
 (* pour l'instant inutile *)
 
@@ -256,7 +269,7 @@ Definition ctx := list term.
 
 
 Inductive ty : ctx -> term -> term  -> Type :=
-| ty_var0 Γ A : wfCtx (A :: Γ) -> ty  (A::Γ) A.[ren(+1)] (ids 0)
+| ty_var0 Γ A : wfTy Γ A  -> ty  (A::Γ) A.[ren(+1)] (ids 0)
 | ty_termS Γ s A B : Γ |- s : A -> wfTy Γ B -> (B::Γ) |- s.[ren(+1) ] : A.[ren(+1)]
 with wfCtx : ctx -> Type :=
      | wfEmpty : wfCtx nil
@@ -507,8 +520,7 @@ Lemma ty_wfty Γ t A (w:Γ |- t : A) : wfTy Γ A.
         (* with lemma61' Γ A (wA: Γ |- A)   : wfCtx Γ. *)
   elim:Γ  A t /w.
   + move => Γ A wfA.
-    inversion wfA; subst.
-    now apply: weakening_type.
+    now apply:weakening_type.
   +  move => Γ s A B ct .
      (* move => [wfA wfΓ] cu . *)
      move => wfA cu.
@@ -520,10 +532,7 @@ Defined.
 
 Lemma ty_wfctxt Γ t A (w:Γ |- t : A) : wfCtx Γ.
 Proof.
-  elim:Γ  A t /w => //.
-  +  move => Γ s A B ct .
-     move => wfA cu.
-     now constructor.
+  now elim:Γ  A t /w ; constructor.
 Defined.
 
 Lemma wfty_wfctxt Γ A (w:Γ |- A) : wfCtx Γ.
@@ -533,12 +542,103 @@ Proof.
      apply:ty_wfctxt.
      eauto.
 Defined.
-(*
-Inductive wfTy (Γ:Ctx) : type -> Type :=
-  | wfUnit : Γ |- tyUnit
-  | wfAr A t u : Γ |- t : A -> Γ |- u : A -> Γ |- (tyAr A t u)
-where "Gamma |- A" := (wfTy Gamma A).
-*)
+
+
+(* *****************
+
+
+Unicité du jugement de typage
+
+
+****************** *)
+
+Definition transport {A : Type} (P : A -> Type) {x y : A} (p : x = y) (u : P x) : P y :=
+  eq_rect x P u y p.
+
+Definition ap := f_equal.
+
+
+Lemma uniq_wfctxt_aux Γ Γ'  (wΓ :wfCtx Γ) (wΓ':wfCtx Γ')(eΓ : Γ=Γ') :
+  transport eΓ wΓ = wΓ'
+with uniq_wfty_aux Γ Γ' A A' (wA : Γ |- A) (wA' : Γ' |- A') (eΓ : Γ = Γ') (eA : A=A') :
+  transport(P:= fun Γ => Γ |- _) eΓ (transport (P:=fun A => _ |- A) eA wA) = wA'
+with uniq_term_aux Γ Γ' A A' t t' (wt:Γ|-t:A) (wt':Γ'|- t':A')
+  (eΓ : Γ = Γ') (eA : A = A') (et : t = t'):
+  transport( P:= fun t => _ |- t : _) et
+                (transport( P:= fun A' => _ |- _ : A') eA
+                          (transport (P:= fun c=> c |- _ : _) eΓ wt )) = wt'.
+Proof.  
+  - case:Γ' / wΓ' Γ wΓ eΓ.
+    + move => Γ wΓ eΓ.
+      destruct wΓ.
+      * rewrite eq_axiomK //=.
+      * discriminate.
+    + move => Γ' A' wA' Γ wΓ.
+      case:Γ / wΓ.
+      * discriminate.
+      * move => Γ A wA eΓ.
+        have [eA' eΓ'] := eΓ.
+        subst.
+        rewrite eq_axiomK /=.
+        f_equal.
+        apply:(uniq_wfty_aux _ _ _ _ _ _ erefl erefl).
+  - case:Γ' A'/wA' Γ A wA eΓ eA.
+    + move => Γ' wΓ' Γ A wA eΓ eA.
+      destruct wA.
+      * subst.
+        rewrite eq_axiomK /=.
+        f_equal.
+        apply:(uniq_wfctxt_aux _ _ _ _ erefl).
+      * discriminate.
+    + move => Γ' A' t' u' wt' wu' Γ A wA.
+      case :Γ A/wA.
+      * discriminate.
+      * move => Γ A t u wt wu eΓ eA.
+        have [? ? ?] := eA.
+        subst.
+        rewrite eq_axiomK /=.
+        f_equal.
+        -- apply:(uniq_term_aux _ _ _ _ _ _ _ _ erefl erefl erefl).
+        -- apply:(uniq_term_aux _ _ _ _ _ _ _ _ erefl erefl erefl).
+  - case:Γ' A' t' / wt' Γ t A wt eΓ eA et.
+    + intros.
+      destruct wt.
+      * have [eA' eΓ'] := eΓ; subst.
+        rewrite !eq_axiomK //=.
+        f_equal.
+        -- apply:(uniq_wfty_aux _ _ _ _ _ _ erefl erefl).
+      * exfalso.
+        apply:noidsren.
+        exact:et.
+    + move => Γ' t' A' B' wt'  wB Γ t A wt eΓ eA et.
+    destruct wt.
+      * exfalso.
+        apply:noidsren.
+        exact:(esym et).
+      * have [eB eΓ'] := eΓ; subst.
+        refine ((fun es eA' => _) (lift_injn _ _ _ et) (lift_injn _ _ _ eA)).
+        subst.
+        rewrite !eq_axiomK //=.
+        f_equal.
+        -- apply:(uniq_term_aux _ _ _ _ _ _ _ _ erefl erefl erefl).
+        -- apply:(uniq_wfty_aux _ _ _ _ _ _ erefl erefl).
+Defined.
+
+Definition uniq_term Γ A t (e e':Γ|- t:A) : e = e' :=
+  uniq_term_aux e e' erefl erefl erefl.
+
+Definition uniq_wfctxt Γ (e e':wfCtx Γ) : e = e'  :=
+  uniq_wfctxt_aux e e' erefl.
+
+Definition uniq_wfty Γ A (e e':Γ|- A) : e = e' := uniq_wfty_aux e e' erefl erefl.
+
+
+(* ************************
+
+Substitutions
+
+
+**************************** *)
 
 Definition substs := list term.
 
@@ -726,7 +826,8 @@ Lemma id_subst Γ Δ (w:wfCtx( Δ++Γ))  : ty_substs (Δ++Γ) Γ
         set A'' := A.[ren(+1)].
         suff eqA : A' = A''.
         { rewrite eqA.
-        now constructor.
+          constructor.
+          now inversion w.
         }
         have wA : Γ |- A by inversion w.
         apply:(subst_typ_rien wA).
@@ -927,8 +1028,6 @@ notamment le foncteur S_glob -> Type
 un objet de S_glob est { Γ : ctxt & wfCtx Γ } *)
 
 (* Definition needed := @wfCtx_mut (fun _ _ => Type). *)
-Module test.
-Parameter (Tstar:Type).
 
 (*
 Inductive ty : ctx -> term -> term  -> Type :=
@@ -949,109 +1048,89 @@ with ty_mut := Induction for ty Sort Type.
 
 *)
 Axiom myadmit : forall {A:Type} , A.
-Definition transport {A : Type} (P : A -> Type) {x y : A} (p : x = y) (u : P x) : P y :=
-  eq_rect x P u y p.
 
-Definition ap := f_equal.
+(*
+*******
 
-Lemma uniq_term Γ A t (e e':Γ|- t:A) : e = e'.
-  induction e.
-  - revert w.
-    (*
-    refine (_ (match e' as e' in c |- t' : A'  return
-                match e' as c   with
-                | ty_var0 Γ A w' => forall (w:wfCtx (A::Γ)), ty_var0 w = ty_var0 w'
-                |ty_termS Γ s A B ws wB => forall (w':wfCtx (B::Γ)), False
-                end 
-             with
-               ty_var0 Γ A w => _
-             |ty_termS Γ s A B ws wB => _
-             end) ).
-    destruct e'.
+Soit U un type tel que pour tous x y, x = y
+
+Alors U vérifie UIP
+
+La preuve est similaire la preuve de égalité décidable -> UIP
+
+Il suffit de montrer que tout fonction f: forall y, x = y -> x = y
+est injective. Pour cela, il suffit de construire un retract.
+Pour cela il suffit de montrer que f (e o e') = f e o e' par destruction de e'
+(ou de e selon comment est défini la composition des chemins), puis de prendre
+e = 1.
+
+*********
+
 *)
-    (*
-    refine ((match e' as e' in c |- t' : A'  return
-                   forall w:wfCtx c,
-                match c as c return (c|- t':A' -> forall (w:wfCtx c), c|-t':A' -> Type) with
-                | A::Γ => fun e'' w x => x = e''
-                | _ => fun _ _ _=> True
-                end e' w (ty_var0 w)
-                    
-             with
-               ty_var0 Γ A w => _
-             |ty_termS Γ s A B ws wB => _
-             end) ).
-*)
-    generalize (erefl  A.[ren(+1)]).
-    refine ((match e' as e' in c |- t' : A'  return
-                   
-                match c as c return (c|- t':A' -> Type) with
-                | A::Γ => fun e'' => forall (w:wfCtx (A::Γ)), ty_var0 w = e''
-                | _ => fun _ => True
-                end e'
-             with
-               ty_var0 Γ A w => _
-             |ty_termS Γ s A B ws wB => _
-             end) ).
-    subst.
 
-Lemma uniq_wfctxt Γ (e e':wfCtx Γ) : e = e' with
- uniq_wfty Γ A (e e':Γ|- A) : e = e'.
-  destruct e.
-  -
-    refine ((match e' as e' in wfCtx c return
-                match c with
-                        | nil =>  fun (x:wfCtx nil) (e':wfCtx nil) => x = e'
-                        | t::q => fun _ _ => True
-                end
-                wfEmpty e'
-          with
-            wfEmpty => _
-          | _ => I
-          end) ).
-  reflexivity.
-  -  revert w.
-    refine ((match e' as e' in wfCtx c return
-                match c with
-                | A::Γ => fun e' => forall (w:Γ|-A), wfCtxNext w = e'
-                | _ => fun _ => True
-                end e'
-             with
-               wfEmpty => I
-             | wfCtxNext Γ A w => _
-             end) ).
-    move => w'.
-    f_equal.
-    apply:uniq_wfty.
-  -  destruct e.
-     + revert w.
-    refine ((match e' as e' in Γ |- A return
-                match A with
-                | tyUnit => fun e' => forall (w:wfCtx  Γ), wfUnit w =e'
-                | _ => fun _ => True
-                end e'
-             with
-               wfUnit _ _  => _
-             | _ => I
-             end) ).
-    move => ?.
-    f_equal.
-    apply:uniq_wfctxt.
-    +
-     exact:myadmit.
-     Qed.
-    subst.
-  destruct e'.
-  inversion e'.
+Definition comp_eq A (x y z:A) (e:x=y) (e':y=z) : x=z.
+  now destruct e'.
+Defined.
 
-Admitted.
+Lemma comp_eql A (x y  :A) (e:x=y)  : comp_eq erefl e = e.
+  now destruct e.
+Defined.  
+
+Lemma comp_eq_assoc A (w x y z :A) (e:w=x) (e':x=y) (e'':y=z) :
+  comp_eq e (comp_eq e' e'') = comp_eq (comp_eq e e') e''.
+  destruct e''.
+  now destruct e'.
+Defined.
+
+Lemma comp_eq_invl A (x y:A) (e:x=y) : comp_eq (esym e) e = erefl.
+now  destruct e.
+Defined.
+Section Hedberg.
+  Variable (U:Type) (x:U) (f:forall y, x = y -> x = y).
+
+
+  Lemma nat_transf_f y (e:x=x) (e':x=y) :
+    f (comp_eq e e') =comp_eq (f e) e' .
+  Proof.
+    now destruct e'.
+  Qed.
+
+  Lemma inj_f y (e:x=y) : e = comp_eq  (esym (f erefl)) (f e).
+    have h:=nat_transf_f erefl e.
+    rewrite comp_eql in h.
+    rewrite h.
+    set z := f _.
+    clearbody z.
+    rewrite comp_eq_assoc comp_eq_invl comp_eql.
+    reflexivity.
+  Defined.
+End Hedberg.
+
+Section AllEqualsUIP.
+  Variables (T:Type).
+  Hypothesis (allequals : forall (x y:T), x = y).
+
+  Lemma allequals_eqirrelevance (x y:T) (e e':x=y) : e=e'.
+    have hinj_f  := inj_f (fun y _ => allequals x y) e.
+    have hinj_f'  := inj_f (fun y _ => allequals x y) e'.
+    rewrite hinj_f hinj_f'.
+    reflexivity.
+  Qed.
+
+  Lemma allequals_axiomK (x:T) : all_equal_to (erefl x).
+    move => e.
+    apply:(allequals_eqirrelevance e(erefl x) ).
+  Qed.
+End AllEqualsUIP.
 
 
 (* avec l'univalence, se déduit des deux lemmes précéddents *)
 Lemma uniq_wfctxt_wfty Γ A (w w': Γ |- A) :
   (uniq_wfctxt (wfty_wfctxt w) (wfty_wfctxt w')) =
    ap (@wfty_wfctxt Γ A) (uniq_wfty w w') .
-  Admitted.
+  apply:allequals_eqirrelevance.
+  apply:uniq_wfctxt.
+Qed.
 
 
 Section testtransport.
@@ -1087,13 +1166,18 @@ Lemma transportyop Γ A  (P: wfCtx Γ -> Type)
 Qed.
 Arguments transport {A} P {x y} _ _.
 Definition wfCtx_mut_orig := @wfCtx_mut.
+
+Module test.
 Axiom wfCtx_mut : (
 forall (P : forall c : ctx, wfCtx c -> Type) (P0 : forall (c : ctx) (t : term) (w: c |- t), P c (wfty_wfctxt w) -> Type)
   (Pt : forall (Γ : ctx) (A t  : term) (wt: Γ |- t : A), forall (wΓ: P Γ _), P0 Γ A (ty_wfty wt) wΓ -> Type),
 P [::] wfEmpty ->
-(forall (Γ : ctx) (A : term) (* (w : wfCtx Γ), *),
-    forall w0 : Γ |- A,forall (γ : P Γ _),  P0 Γ A w0 γ -> P (A :: Γ) (wfCtxNext  w0)) ->
+(* extension des contexte *)
+forall Pext : (forall (Γ : ctx) (A : term) (* (w : wfCtx Γ), *),
+    forall w0 : Γ |- A,forall (γ : P Γ _),  P0 Γ A w0 γ -> P (A :: Γ) (wfCtxNext  w0)),
+(* tyUnit *)
 (forall (Γ : ctx) (w : wfCtx Γ) (γ: P Γ w) , P0 Γ tyUnit (wfUnit w) γ) ->
+(* pour la flèche *)
 (forall (Γ : ctx) (A t u : term) (w0 : Γ |- t : A) (w1 : Γ |- u : A)
    (wA := ty_wfty w0)
    (rΓ : P Γ (wfty_wfctxt wA))
@@ -1113,41 +1197,252 @@ P [::] wfEmpty ->
                                              (wfty_wfctxt wA)
                                              (wfty_wfctxt (ty_wfty w1))) 
                                         rΓ))),
-    (*
-    (Pt' := transport
-              (fun z => P0 Γ A (ty_wfty w1) (transport _ z rΓ) -> Type)
-              (uniq_wfctxt_wfty wA (ty_wfty w1)) (Pt Γ A u w1 (transport _
-                                        (uniq_wfctxt
-                                             (wfty_wfctxt wA)
-                                             (wfty_wfctxt (ty_wfty w1))) 
-                                        rΓ))),
-*)
-
-              (* P0 Γ A (ty_wfty w1) (transport (uniq_wfctxt *)
-              (*                                (wfty_wfctxt wA) *)
-              (*                                (wfty_wfctxt (ty_wfty w1))) *)
-              (*                             rΓ)), *)
     Pt Γ A t w0 rΓ rA -> Pt' rA' ->
-    (* Pt Γ A u w1 (transport *)
-    (*                                     (uniq_wfctxt *)
-    (*                                          (wfty_wfctxt wA) *)
-    (*                                          (wfty_wfctxt (ty_wfty w1)))  *)
-    (*                                     rΓ) *)
-    (*                         rA' -> *)
-                                        (* (transport (uniq_wfctxt_wfty _ _)rA') -> *)
-                            (* (transport (uniq_wfctxt _ _) rA') -> *)
-                            (* (transport (uniq_wfctxt _ _) rA) -> *)
     P0 Γ (tyAr A t u) (wfAr w0 w1) (transport _ (uniq_wfctxt _ _) rΓ)) ->
-(*(forall (Γ : seq term) (A : term) (w : wfCtx (A :: Γ)),
- P (A :: Γ) w -> P1 (A :: Γ) A.[ren (+1)] (ids 0) (ty_var0 w)) ->
+(forall (Γ : seq term) (A : term) (wA : Γ |- A) 
+   (rΓ : P Γ _) 
+   (rA : P0 Γ A wA rΓ)
+   (rΓext :=  (Pext Γ A wA rΓ rA))
+   (rA' : P0 (A :: Γ) A.[ren (+1)] (ty_wfty (ty_var0 wA))
+           (transport (P (A :: Γ)) (uniq_wfctxt (wfCtxNext wA) (wfty_wfctxt (ty_wfty (ty_var0 wA))))
+              rΓext)),
+      Pt (A :: Γ) A.[ren (+1)] (ids 0) (ty_var0 ( wA))
+                              (transport _ (uniq_wfctxt _ _) rΓext)
+                               rA')  ->
+(*
 (forall (Γ : ctx) (s A B : term) (t : Γ |- s : A),
- P1 Γ A s t -> forall w : Γ |- B, P0 Γ B w -> P1 (B :: Γ) A.[ren (+1)] s.[ren (+1)] (ty_termS t w)) ->*)
+ P1 Γ A s t -> forall w : Γ |- B, P0 Γ B w -> P1 (B :: Γ) A.[ren (+1)] s.[ren (+1)] (ty_termS t w)) ->
+*)
 forall (c : ctx) (w : wfCtx c), P c w).
-Definition needed   := @wfCtx_mut (fun _ _ => Type) (fun _ _ _ γ => γ -> Type) (fun _ _ _ _ => Type) unit 
-(fun _ _ _ d  A => sigT A) (fun _ _ _ _ => Tstar). 
+
+(*
+(forall (Γ : seq term) (A : term) (wA : Γ |- A) (rΓ : P Γ (wfty_wfctxt wA)) (rA : P0 Γ A wA rΓ),
+ let rΓext := Pext Γ A wA rΓ rA in
+ forall
+   rA' : P0 (A :: Γ) A.[ren (+1)] (ty_wfty (ty_var0 (wfCtxNext wA)))
+           (transport (P (A :: Γ))
+              (uniq_wfctxt (wfCtxNext wA) (wfty_wfctxt (ty_wfty (ty_var0 (wfCtxNext wA))))) rΓext),
+*)
+Parameter (Tstar:Type).
+Arguments transport_dep [A B] f [a a' b] _ _.
+Definition tTarrow :=
+   (forall (Γ : ctx) (A t u : term) (wt : Γ |- t : A) (wu : Γ |- u : A) 
+          (rΓ : Type) (rA : rΓ -> Type),
+        (forall γ : rΓ, rA γ) ->
+        transport (fun z : Type => (z -> Type) -> Type) (transportyop (ty_wfty wu) rΓ)
+          (fun
+             wA : transport (fun _ : wfCtx Γ => Type)
+                    (uniq_wfctxt (wfty_wfctxt (ty_wfty wt)) (wfty_wfctxt (ty_wfty wu))) rΓ -> Type =>
+           forall
+             γ : transport (fun _ : wfCtx Γ => Type)
+                   (uniq_wfctxt (wfty_wfctxt (ty_wfty wt)) (wfty_wfctxt (ty_wfty wu))) rΓ, 
+           wA γ)
+          (transport_dep (fun (_ : Γ |- A) (γ : Type) => γ -> Type) rA
+             (uniq_wfty (ty_wfty wt) (ty_wfty wu))) ->
+        transport (fun _ : wfCtx Γ => Type) (uniq_wfctxt (wfty_wfctxt (ty_wfty wt)) (ty_wfctxt wu)) rΓ ->
+        Type).
+
+
+Lemma transport_trivial A (B:A -> Type) (a a':A) (e:a=a') (t:B a) :
+  transport (fun _ => B a) e t = t.
+now destruct e.
+Qed.
+Lemma transport_trivial_trivial A (B:Type) (a a':A) (e:a=a') (t:B ) :
+  transport (fun _ => B ) e t = t.
+now destruct e.
+Qed.
+Definition tvraiTarrow := forall Γ A t u (wt : Γ |- t : A) (wt : Γ |- u : A)
+                            (sΓ:Type) (sA : sΓ -> Type),
+                            forall (st su :forall γ:sΓ, sA γ) (γ:sΓ) , Type.
+
+Definition injectarrow (x:tvraiTarrow) : tTarrow.
+  red in x.
+  red.
+  move => Γ A t u wt wu rΓ rA rs ru γ.
+  apply:(x Γ A t u wt wu rΓ rA); last first.
+  - move:γ.
+    clear.
+    rewrite transport_trivial_trivial.
+    exact:id.
+  - exact:rs.
+  - move:ru.
+    clear.
+    set (e:= transportyop _ _).
+    clearbody e.
+    cbn in e.
+    set trdep := transport_dep _ _ _.
+    cbn in trdep.
+    change trdep with
+    (transport ( fun A => A -> Type)
+       (erefl (transport (fun _ : Γ |- A => Type) (uniq_wfty (ty_wfty wt) (ty_wfty wu)) rΓ
+       )) trdep).
+    move:(erefl _) => eq.
+    have e' := e.
+    destruct e.
+    cbn.
+    set euctxt := uniq_wfctxt _ _ in eq *.
+    clearbody euctxt.
+    destruct euctxt.
+    cbn in *.
+    move => h γ; specialize (h γ).
+    move:h.
+    have syminv := esymK eq.
+    rewrite <- syminv.
+    move:(esym eq).
+    clear.
+    move => x.
+    refine (match x with erefl => _ end).
+    destruct x.
+    destruct 1.
+    move:trdep => trdep'.
+    destruct eq.
+    change (
+        (forall γ , transport (fun A0 : Type => A0 -> Type)
+                         eq trdep (transport (fun z => z rΓ) erefl γ)) -> forall γ : rΓ, rA γ).
+    move:erefl => e''.
+    destruct eq.
+    cbn.
+  change ((forall γ : transport (fun _ : Γ |- A => Type) euty rΓ,
+              transport_dep (fun (_ : Γ |- A) (γ0 : Type) => γ0 -> Type) rA euty
+                            (transport id e'' (transport (fun z => transport _ z rΓ) (erefl euty)  γ))) ->
+  forall γ : rΓ, rA γ).
+  move:erefl.
+  change ((fun euty' => forall e : euty' = euty,
+  (forall γ : transport (fun _ : Γ |- A => Type) euty' rΓ,
+   transport_dep (fun (_ : Γ |- A) (γ0 : Type) => γ0 -> Type) rA euty
+                 (transport id e'' (transport (fun z => transport _ z rΓ) e γ))) ->
+  forall γ : rΓ, rA γ) euty).
+  set P := (P in P _).
+  suff Px euty' : P euty' by apply:Px.
+  subst P ;cbn.
+  move => eueuty.
+  destruct euty'.
+  cbn.
+  move => h γ.
+  specialize (h γ).
+  move:h.
+  clear.
+  unfold transport_dep.
+  destruct euty.
+  rewrite -eueuty.
+  symmetry in eueuty.
+  destruct eueuty.
+  destruct 1.
+
+
+  pattern euty at 1 3.
+  move:{1 3}euty.
+  destruct euty.
+  change (forall γ : transport (fun _ : Γ |- A => Type) euty rΓ,
+   transport_dep (fun (_ : Γ |- A) (γ0 : Type) => γ0 -> Type) rA euty (transport id e'' γ)) ->
+  forall γ : rΓ, rA γ
+    unfold transport_dep.
+    have euty' :=euty.
+    destruct euty'.
+    have eutyrefl : euty = erefl.
+    apply:allequals_axiomK.
+    admit.
+    destruct eutyrefl.
+    have 
+    clearbody euty.
+    destruct euty.
+    rewrite (allequals_axiomK (x:=uni''); cbn.
+    clear.
+    rewrite /trdep.
+    clearbody euty.
+    destruct euty.
+    cbn.
+    exact :id.
+    rewrite allequals_axiomK.
+    change 
+  ((forall γ , trdep (transport (fun z => z rΓ) erefl γ)) ->
+  forall γ : rΓ, rA γ).
+    move:erefl => e'''.
+    clear.
+    have yop := transport_trivial_trivial (A:=Γ|-A) (B:=Type)
+                                          (uniq_wfty (ty_wfty wt) (ty_wfty wu)) rΓ.
+    destruct yop.
+     (transport_trivial_trivial _ _).
+    change
+  ((forall
+     γ,
+   transport (fun A0 : Type => A0 -> Type) eq
+     (transport_dep (fun (_ : Γ |- A) (γ0 : Type) => γ0 -> Type) rA euty) γ) -> 
+  forall γ : rΓ, rA γ).
+    unfold trdep.
+    set euty := uniq_wfty _ _.
+    unfold transport_dep.
+    clearbody euty.
+    destruct e'.
+    clear.
+    rewrite transport_trivial_trivial.
+    set eu := uniq_wfctxt  _ _.
+    set tr := transport _ _ _.
+    have eeu : eu = erefl.
+    rewrite allequals_axiomK.
+    clearbody eu.
+    move:(uniq_wfctxt _ _).
+    refine (match e in _ = b with erefl => _ end).
+    destruct e.
+    unfold transportyop.
+
+Lemma monTarrow:tTarrow.
+  red.
+  move => Γ A t u wt wu rΓ rA truc.
+  rewrite transport_trivial_trivial.
+
+Parameter (Tarrow: (forall (Γ : ctx) (A t u : term) (wt : Γ |- t : A) (wu : Γ |- u : A) 
+          (rΓ : Type) (rA : rΓ -> Type),
+        (forall γ : rΓ, rA γ) ->
+        transport (fun z : Type => (z -> Type) -> Type) (transportyop (ty_wfty wu) rΓ)
+          (fun
+             wA : transport (fun _ : wfCtx Γ => Type)
+                    (uniq_wfctxt (wfty_wfctxt (ty_wfty wt)) (wfty_wfctxt (ty_wfty wu))) rΓ -> Type =>
+           forall
+             γ : transport (fun _ : wfCtx Γ => Type)
+                   (uniq_wfctxt (wfty_wfctxt (ty_wfty wt)) (wfty_wfctxt (ty_wfty wu))) rΓ, 
+           wA γ)
+          (transport_dep (fun (_ : Γ |- A) (γ : Type) => γ -> Type) rA
+             (uniq_wfty (ty_wfty wt) (ty_wfty wu))) ->
+        transport (fun _ : wfCtx Γ => Type) (uniq_wfctxt (wfty_wfctxt (ty_wfty wt)) (ty_wfctxt wu)) rΓ ->
+        Type)).
+
+Definition needed   := @wfCtx_mut (fun _ _ => Type) (fun _ _ _ γ => γ -> Type) (fun _ _ _ _ wΓ wA => forall γ:wΓ, wA γ) unit 
+(fun _ _ _ d  A => sigT A) (fun _ _ _ _ => Tstar) (@Tarrow).
+
 Definition tneeded := ltac: (match (type of needed) with ?x => set (y:=x); cbn in y; exact y end).
 Goal True.
- (match (type of needed) with ?x => set (y:=x); cbn in y end).
+ (match (type of needed) with ?x => set (y:=x)end).
+ simpl in y.
+ cbn in y.
+    move => Γ A wA rΓ rA.
+    move:(wfCtxNext wA) => w.
+    set e:=(e in transport _ e).
+    have e2 := e .
+    move => rA'.
+    set e':=(e in transport _ e).
+
+    have eqe: e = e' by apply:allequals_eqirrelevance; apply:uniq_wfctxt.
+    set rA'' := rA'.
+    clearbody rA''.
+    rewrite transport_trivial_trivial in rA''.
+  :w
+     khave 
+    have erA : rA'
+    move => 
+    destruct e'.
+    subst.
+    have eqe:e' =erefl.
+    clearbody e'.
+    rewrite transport_trivial_trivial.
+    clearbody e'.
+    have h := transport_trivial_trivial (A:=wfCtx (A::Γ)) (B:=Type) e {x:rΓ & rA x}.
+    destruct h.
+    rewrite transport_trivial_trivial.
+    rewrite (transport_trivial (A:=wfCtx.
+Goal True.
+ (match (type of needed) with ?x => set (y:=x)end).
+ simpl in y.
  P0 := fun c _ _ => P c -> Type
 
                          Γ A t u (semΓ : Type) (semA : semΓ -> Type) (semt :forall γ:semΓ, semA γ)
