@@ -1152,6 +1152,15 @@ Section testtransport2.
   (* je ne pense pas que ce soit possible *)
 End testtransport2.
 
+Record Model :=
+  Build_Model {
+      Tstar : Type;
+      Tarrow : forall (Γ : ctx) (sΓ : Type),
+          forall (A : term ) (sA : sΓ -> Type) (t u : term),
+            Γ |- t : A -> Γ |- u : A ->
+            forall (st su : forall γ, sA γ),
+            sΓ -> Type}.
+
 Lemma transportyop Γ A  (P: wfCtx Γ -> Type)
       (wA wA':Γ|-A) rΓ:
     (transport (P:=[eta P ]) (uniq_wfctxt (wfty_wfctxt wA) (wfty_wfctxt wA')) rΓ)
