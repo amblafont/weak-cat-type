@@ -1152,6 +1152,8 @@ Section testtransport2.
   (* je ne pense pas que ce soit possible *)
 End testtransport2.
 
+Notation "x ..1" := (projT1 x) (at level 2).
+Notation "x ..2" := (projT2 x) (at level 2).
 Record Model :=
   Build_Model {
       Tstar : Type;
@@ -1159,7 +1161,185 @@ Record Model :=
           forall (A : term ) (sA : sΓ -> Type) (t u : term),
             Γ |- t : A -> Γ |- u : A ->
             forall (st su : forall γ, sA γ),
-            sΓ -> Type}.
+              sΓ -> Type;
+      Tarrow_wk : forall Γ sΓ A B (sA sB:sΓ -> Type) t u (wt:Γ|-t:A)
+                    (wu:Γ|-u:A)
+                    (st su:forall γ,sA γ)( wB:Γ |- B),
+         (Tarrow (ty_termS wt wB) (ty_termS wu wB) (fun γ : {x : sΓ & sB x} => st γ ..1)
+                 (fun γ : {x : sΓ & sB x} => su γ ..1)) =
+         (fun γ : {x : sΓ & _ } => Tarrow  wt wu st su γ ..1)
+    }.
+
+Inductive spec_semCtx (m:Model) : ctx -> Type -> Type
+  := semCtx_nil : spec_semCtx m nil unit
+   | semCtx_ext Γ A sΓ sA :
+       @spec_semCtx m Γ sΓ ->
+       @spec_semTy m A sΓ sA ->
+       @spec_semCtx m (A::Γ) (sigT sA)
+with spec_semTy (m:Model) :  term -> forall semC : Type, (semC -> Type) -> Type :=
+       semTy_star sΓ: @spec_semTy m tyUnit sΓ (fun _ => Tstar m)
+     | semTy_arrow Γ sΓ A sA t u (st su:forall γ:sΓ, sA γ) (wt: Γ |- t: A)( wu:Γ|- u:A) :
+         spec_semCtx m Γ sΓ -> @spec_semTy m (tyAr A t u) sΓ
+                                         (m.(Tarrow) wt wu st su )
+with spec_semTm (m:Model) : term -> forall semC (semA : semC -> Type),
+         (forall γ, semA γ) -> Type :=
+     | semTm_0 sΓ A sA : @spec_semTy m A sΓ sA ->
+                         @spec_semTm m (ids 0) (sigT sA) _
+                                    (fun γ=> sA (projT1 γ))
+     | semTm_S sΓ sA sB t st : @spec_semTm m t sΓ sA st ->
+                         @spec_semTm m t.[ren(+1)] (sigT sB) _
+                                    (fun γ=> st (projT1 γ)).
+Scheme spec_semCtx_mut := Induction for spec_semCtx Sort Type
+with spec_semTy_mut := Induction for spec_semTy Sort Type
+with spec_semTm_mut := Induction for spec_semTm Sort Type.
+
+Lemma uniq_semCtx (m:Model) (Γ:ctx) (wΓ:wfCtx Γ) sΓ sΓ' :
+   spec_semCtx m Γ sΓ -> spec_semCtx m Γ sΓ' -> sΓ = sΓ'
+  with uniq_semTy (m:Model) Γ (A:term) (wA : Γ |- A) sΓ (sA sA' :sΓ -> Type):
+         spec_semTy m A sA -> spec_semTy m A sA' -> sA = sA'.
+  apply:myadmit.
+  apply:myadmit.
+Defined.
+
+
+Lemma wesh m Γ A (B:term) (sΓ : Type)  (sA sB : sΓ -> Type) (wB: Γ |- B) :
+  spec_semTy m A sA ->
+  spec_semCtx m Γ sΓ ->
+  spec_semTy m A.[ren (+1)] (semC:=sigT sB) (fun γ   => sA γ ..1).
+  move => h.
+  case:A sΓ sA / h sB.
+  - constructor.
+  - move => Γ' sΓ' A sA t u st su wt wu specΓ.
+    move => sB.
+    asimpl.
+    assert( r := @semTy_arrow (m) (B::Γ) (sigT sB) A.[ren(+1)]  (fun γ => sA γ..1)
+    t.[ren(+1)] u.[ren(+1)] (fun γ => st γ..1)(fun γ => su γ..1)).
+    have wA := ty_wfty wt.
+    specialize (r (ty_termS wt wA)  (ty_termS wu wA)).
+    Set Printing Implicit.
+    cbn in r.
+    case
+    specialize (r 
+    case/Wrap:r.
+    cbn in r.
+    specialize (
+    econstructor.
+
+Lemma semCtx (m:Model) (Γ : ctx) (wΓ:wfCtx Γ) : {sΓ : _ & spec_semCtx m Γ sΓ}
+with semTy (m:Model) Γ (A:term) (wA:Γ |- A) :
+       { sΓ : _ &  ((spec_semCtx m Γ sΓ) * {sA : _ & @spec_semTy m A
+                                                                    (sΓ) sA})%type}
+with semTm (m:Model) Γ (A t:term) (wt:Γ |-t: A)
+     : {sΓ : _ & (spec_semCtx m Γ sΓ * {sA : _ & (@spec_semTy m A sΓ sA)*
+                                               {st : _ & @spec_semTm m t sΓ
+                                                                       sA st }})%type}.
+  - destruct wΓ.
+    + eexists.
+      econstructor.
+    + 
+      specialize (semTy m _ _ w).
+      set yo :=(semTy..2 .2 ..1).
+      set yop :=(semTy..2 .2 ..2).
+      cbn in yo,yop.
+      set sΓ :=(semTy..1).
+      exists  (sigT yo).
+      econstructor.
+      exact:semTy..2.1.
+      exact:yop.
+  - case :Γ A /wA.
+    + move => Γ w(*  star*).
+      set sΓ := semCtx m _ w.
+      exists (projT1 sΓ).
+      split.
+      * apply sΓ..2.
+      * eexists.
+      constructor.
+    + move => Γ A t u wt wu.
+      set (It := semTm m _ _ _ wt).
+      set (Iu := semTm m _ _ _ wu).
+      exists (projT1 It).
+      split.
+      * exact:It..2.1.
+      * eexists.
+      apply :(semTy_arrow _ _ wt wu).
+      -- exact It..2.2..2.2..1.
+      -- (* set xu := (projT1 (projT2 (projT2 Iu))). *)
+        have hu1 : projT1 Iu = projT1 It.
+        { apply:uniq_semCtx.
+          apply:(ty_wfctxt wt).
+          exact:Iu..2.1.
+          exact:It..2.1.
+        }
+      have hu2 :  It..2.2..1 =
+                 transport (P:= fun x => x -> _) hu1 (Iu..2.2)..1.
+        {
+          apply:uniq_semTy.
+          - apply :(ty_wfty wt).
+          - exact:It..2.2..2.1.
+          - set (hu := Iu..2.2..2.1).
+            destruct hu1.
+            exact:hu.
+        }
+        rewrite hu2.
+      clear -Iu.
+      destruct hu1.
+      cbn.
+      exact:Iu..2.2..2.2..1.
+      -- exact:It..2.1.
+-  case:Γ A t/wt.
+   + move => Γ A /(semTy m) wA.
+     exists (sigT wA..2.2..1).
+     split.
+     * constructor.
+       -- exact :wA..2.1.
+       -- exact:wA..2.2..2.
+     * exists (fun γ => wA..2.2..1 γ..1).
+       split.
+       --
+
+   apply:myadmit.
+   apply:myadmit.
+   Defined.
+      exact:xu.
+      have hu2 : projT1 It = projT1 Iu.
+      apply myadmit.
+      apply myadmit.
+  - 
+      set (xu := 
+      set wA := (* wfty_wfctxt  *)(ty_wfty wt).
+      set sA := semTy m _ _ wA.
+      exists (projT1 sA).
+      eexists.
+      apply:(projT1 (projT2 (projT2 (semTm m _ _ wt)))).
+      econstructor.
+      apply myadmit.
+      - apply:myadmit.
+      apply:(semTy_arrow (Γ:=Γ)).
+      exists (projT1 (projT2 sA)).
+    exists (projT1 sA_tot).
+    exists (projT1 (projT2 sA_tot)).
+    + exact:wsA.
+    +
+      set x := (x in spec_semTy  _ _ x).
+      constructor.
+    exists (projT1 (semCtx m _ wΓ)).
+      unshelve eexists.
+      * eapply (semTy m).
+        exact w.
+      *
+    +
+with wfTy_mut := Induction for wfTy Sort Type
+with ty_mut := Induction for ty Sort Type.
+
+     (* | semTm_S t sΓ sA sB st : spec_semTm t sΓ sA st -> *)
+     (*                          (* spec_semTy m A sΓ sA -> *) *)
+     (*                     spec_semTm m t.[ren(+1)] (sigT sB) *)
+     (*                                (fun γ=> sA (projT1 γ)). *)
+(*
+Γ |- A
+Γ,A |- A : Σ γ, [A] γ -> Type
+*)
+
 
 Lemma transportyop Γ A  (P: wfCtx Γ -> Type)
       (wA wA':Γ|-A) rΓ:
