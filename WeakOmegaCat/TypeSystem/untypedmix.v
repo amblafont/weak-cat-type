@@ -1170,22 +1170,41 @@ Record Model :=
          (fun γ : {x : sΓ & _ } => Tarrow  wt wu st su γ ..1)
     }.
 
+Definition type_model (A:Type) : Model.
+  unshelve (eapply(@Build_Model A)).
+  - move => Γ sΓ A' sA t u wt wu su st γ.
+    specialize (su γ).
+    specialize (st γ).
+    exact (su=st).
+  - intros.
+    cbn.
+    reflexivity.
+Defined.
+
+(* on a forcément besoin d'UIP pour montrer que c'est une relation fonctionnelle
+(ie qu'il n'y a qu'une seule image). Car tous ces indices ne sont en fait que
+des égalités. Et les égalités, on sait bien que c'est pas forcément hProp
+
+A moins qu'on se restreigne à des hset
+*)
 Inductive spec_semCtx (m:Model) : ctx -> Type -> Type
   := semCtx_nil : spec_semCtx m nil unit
    | semCtx_ext Γ A sΓ sA :
        @spec_semCtx m Γ sΓ ->
-       @spec_semTy m A sΓ sA ->
+       @spec_semTy m Γ A sΓ sA ->
        @spec_semCtx m (A::Γ) (sigT sA)
-with spec_semTy (m:Model) :  term -> forall semC : Type, (semC -> Type) -> Type :=
-       semTy_star sΓ: @spec_semTy m tyUnit sΓ (fun _ => Tstar m)
+with spec_semTy (m:Model) : ctx -> term -> forall semC : Type, (semC -> Type) -> Type :=
+       semTy_star Γ sΓ: @spec_semTy m Γ tyUnit sΓ (fun _ => Tstar m)
      | semTy_arrow Γ sΓ A sA t u (st su:forall γ:sΓ, sA γ) (wt: Γ |- t: A)( wu:Γ|- u:A) :
-         spec_semCtx m Γ sΓ -> @spec_semTy m (tyAr A t u) sΓ
+         spec_semCtx m Γ sΓ 
+         -> spec_semTm m t sA -> spec_semTm m u sA 
+         -> @spec_semTy m Γ (tyAr A t u) sΓ
                                          (m.(Tarrow) wt wu st su )
 with spec_semTm (m:Model) : term -> forall semC (semA : semC -> Type),
          (forall γ, semA γ) -> Type :=
-     | semTm_0 sΓ A sA : @spec_semTy m A sΓ sA ->
+     | semTm_0 Γ sΓ A sA : @spec_semTy m Γ A sΓ sA ->
                          @spec_semTm m (ids 0) (sigT sA) _
-                                    (fun γ=> sA (projT1 γ))
+                                    (fun γ=> (projT2 γ))
      | semTm_S sΓ sA sB t st : @spec_semTm m t sΓ sA st ->
                          @spec_semTm m t.[ren(+1)] (sigT sB) _
                                     (fun γ=> st (projT1 γ)).
@@ -1193,44 +1212,131 @@ Scheme spec_semCtx_mut := Induction for spec_semCtx Sort Type
 with spec_semTy_mut := Induction for spec_semTy Sort Type
 with spec_semTm_mut := Induction for spec_semTm Sort Type.
 
-Lemma uniq_semCtx (m:Model) (Γ:ctx) (wΓ:wfCtx Γ) sΓ sΓ' :
-   spec_semCtx m Γ sΓ -> spec_semCtx m Γ sΓ' -> sΓ = sΓ'
-  with uniq_semTy (m:Model) Γ (A:term) (wA : Γ |- A) sΓ (sA sA' :sΓ -> Type):
-         spec_semTy m A sA -> spec_semTy m A sA' -> sA = sA'.
-  apply:myadmit.
-  apply:myadmit.
+(* Notation "p # u" := (transport _ p u) (right associativity, at level 65, only parsing). *)
+
+Definition projT1_path {A} {P : A -> Type} {u v : sigT P} (p : u = v)
+  : projT1 u = projT1 v := ap (@projT1 _ _) p.
+
+(* Notation "p ..1" := (projT1_path p) (at level 3). *)
+
+(* Definition projT1_path_1 {A : Type} {P : A -> Type} (u : sigT P) *)
+(* : (eq_refl u) ..1 = eq_refl (u .1) *)
+(* := eq_refl _. *)
+
+
+Definition projT2_path {A} {P : A -> Type} {u v : sigT P} (p : u = v)
+  : transport (projT1_path p) u..2 = v..2.
+  destruct u,v.
+  clear.
+  now destruct ( p).
+Defined.
+
+Class K := Kaxiom : forall A (x:A), all_equal_to (erefl x).
+
+Section UniqSem.
+  Context {k:K}.
+  Variable (m:Model).
+
+  Fixpoint uniq_semCtx  (Γ:ctx) (wΓ:wfCtx Γ) sΓ sΓ' 
+           (spec:spec_semCtx m Γ sΓ) {struct spec} :   spec_semCtx m Γ sΓ' -> sΓ = sΓ' 
+  (* with uniq_semTy  Γ (A:term) (wA : Γ |- A) sΓ (sA sA' :sΓ -> Type) *)
+  (*                 (spec:spec_semTy m Γ A sA) *)
+  (*                 {struct spec} :  spec_semTy m Γ A sA' *)
+  (*                                  -> {e:sΓ = sΓ & transport (P:= fun x => x -> _) *)
+  (*                                                           e sA = sA'}. *)
+  with uniq_semTy  Γ (A:term) (wA : Γ |- A) sΓ (sA sA' :sΓ -> Type)
+                  (spec:spec_semTy m Γ A sA) {struct spec} :  spec_semTy m Γ A sA' -> sA = sA'
+  with uniq_semTm  Γ (A t:term) (wt : Γ |- t : A) sΓ (sA  :sΓ -> Type) st st'
+                  (spec:spec_semTm m t (semA:=sA) st) {struct spec} :  spec_semTm m t st' -> st = st'.
+  (* with uniq_semTy (m:Model) Γ (A:term) (wA : Γ |- A) sΓ sΓ' (sA :sΓ -> Type) (sA':sΓ' -> Type) *)
+  (*                 (e:sΓ = sΓ') *)
+  (*                 (spec:spec_semTy m Γ A sA) {struct spec} : *)
+  (*        spec_semTy m Γ A sA' -> transport (P:= fun x => x->_) e sA = sA'. *)
+  Proof.
+  - 
+    case : Γ sΓ/spec sΓ' wΓ.
+    + move => sΓ' _.
+      inversion 1.
+      exact:erefl.
+    + move => Γ A sΓ sA specΓ specA sΓ' wext.
+      inversion 1.
+      subst.
+      inversion wext.
+      have hΓ : sΓ  = sΓ0.
+      {
+        apply:uniq_semCtx.
+        apply:(wfty_wfctxt H0).
+        exact:specΓ.
+        exact:X0.
+      }
+      subst.
+      
+      f_equal.
+      change sA with (transport (P:= fun x => x->_) erefl sA).
+
+      apply:uniq_semTy.
+      apply:H0.
+      eassumption.
+      eassumption.
+  - case:Γ A sΓ sA /spec wA  (* sΓ'  *)(* e  *)sA'.
+    + move => Γ sΓ .
+      move => _ (* sΓ' e  *)sA'.
+      subst; cbn.
+      inversion 1.
+      reflexivity.
+    + move => Γ sΓ A sA t u st su wt wu spΓ spt spu war.
+      move => (* sΓ' e *) sA'.
+      inversion 1.
+      subst.
+      have z := projT2_path H5.
+      cbn in z.
+      rewrite -z.
+      rewrite Kaxiom //=.
+      have -> : wt0 = wt by apply:uniq_term.
+      have -> : wu0 = wu by apply:uniq_term.
+      have est : st = st0.
+      eapply f_equal.
+      f_equal.
+      congr (Tarrow _ _ _ _ _).
+      etransitivity; last first.
+      cbn in z.
+      exact z.
+      apply (projT2_path H5).
+      rewrite -(projT2_path (H5)).
+      have eΓ : sΓ = sΓ.
+      subst.
+      cbn.
+      (* Aie ! j'ai besoin d'UIP.. *)
+      case:H5 => [e e'].
+    apply:myadmit.
 Defined.
 
 
 Lemma wesh m Γ A (B:term) (sΓ : Type)  (sA sB : sΓ -> Type) (wB: Γ |- B) :
-  spec_semTy m A sA ->
-  spec_semCtx m Γ sΓ ->
-  spec_semTy m A.[ren (+1)] (semC:=sigT sB) (fun γ   => sA γ ..1).
+  spec_semTy m Γ A sA ->
+  spec_semTy m Γ B sB ->
+  spec_semTy m (B::Γ) A.[ren (+1)] (semC:=sigT sB) (fun γ   => sA γ ..1).
   move => h.
-  case:A sΓ sA / h sB.
+  case:Γ A sΓ sA / h sB wB.
   - constructor.
-  - move => Γ' sΓ' A sA t u st su wt wu specΓ.
-    move => sB.
+  - move => Γ sΓ A sA t u st su wt wu specΓ.
+    move => sB wB specB.
     asimpl.
     assert( r := @semTy_arrow (m) (B::Γ) (sigT sB) A.[ren(+1)]  (fun γ => sA γ..1)
     t.[ren(+1)] u.[ren(+1)] (fun γ => st γ..1)(fun γ => su γ..1)).
     have wA := ty_wfty wt.
-    specialize (r (ty_termS wt wA)  (ty_termS wu wA)).
-    Set Printing Implicit.
-    cbn in r.
-    case
-    specialize (r 
-    case/Wrap:r.
-    cbn in r.
-    specialize (
-    econstructor.
+    specialize (r (ty_termS wt wB)  (ty_termS wu wB)).
+    rewrite  (Tarrow_wk m) in r.
+    apply:r.
+    constructor => //.
+Defined.
 
 Lemma semCtx (m:Model) (Γ : ctx) (wΓ:wfCtx Γ) : {sΓ : _ & spec_semCtx m Γ sΓ}
 with semTy (m:Model) Γ (A:term) (wA:Γ |- A) :
-       { sΓ : _ &  ((spec_semCtx m Γ sΓ) * {sA : _ & @spec_semTy m A
+       { sΓ : _ &  ((spec_semCtx m Γ sΓ) * {sA : _ & @spec_semTy m Γ A
                                                                     (sΓ) sA})%type}
 with semTm (m:Model) Γ (A t:term) (wt:Γ |-t: A)
-     : {sΓ : _ & (spec_semCtx m Γ sΓ * {sA : _ & (@spec_semTy m A sΓ sA)*
+     : {sΓ : _ & (spec_semCtx m Γ sΓ * {sA : _ & (@spec_semTy m Γ A sΓ sA)*
                                                {st : _ & @spec_semTm m t sΓ
                                                                        sA st }})%type}.
   - destruct wΓ.
@@ -1287,44 +1393,69 @@ with semTm (m:Model) Γ (A t:term) (wt:Γ |-t: A)
       exact:Iu..2.2..2.2..1.
       -- exact:It..2.1.
 -  case:Γ A t/wt.
-   + move => Γ A /(semTy m) wA.
-     exists (sigT wA..2.2..1).
+   + move => Γ A wA.
+     move/(semTy m):( wA) => IA.
+     exists (sigT IA..2.2..1).
      split.
      * constructor.
-       -- exact :wA..2.1.
-       -- exact:wA..2.2..2.
-     * exists (fun γ => wA..2.2..1 γ..1).
+       -- exact :IA..2.1.
+       -- exact:IA..2.2..2.
+     * exists (fun γ => IA..2.2..1 γ..1).
+       split.
+       -- apply:wesh.
+          exact:wA.
+          exact:IA..2.2..2.
+          exact:IA..2.2..2.
+       -- exists (fun γ => γ..2).
+          cbn.
+          eapply (semTm_0 (m:=m)).
+          exact:IA..2.2..2.
+   + move => Γ t A B wt wB.
+     move/(semTy m):( wB) => IB.
+     (* recopié du dessus *)
+     exists (sigT IB..2.2..1).
+     split.
+     * constructor.
+       -- exact :IB..2.1.
+       -- exact:IB..2.2..2.
+     * have wt' :=wt.
+       apply( semTm m) in wt.
+       set xt := wt..2.2..2.2..2.
+       cbn in xt.
+       assert (h := fun sB => (semTm_S (m:=m) sB (xt))).
+          (* copie d'une preuve plus haut *)
+        have ht1 : wt..1= IB..1  .
+        { apply:uniq_semCtx.
+          apply (wfty_wfctxt wB).
+          all:exact:wt..2.1 ||(exact: IB..2.1) .
+        }
+        (* specialize (h (transport (P:= fun x => x -> _) ht1 (IB..2.2..1))). *)
+        (* set f := (f in spec_semTm _ _ f) in h. *)
+        (* cbn in f. *)
+        set sA := wt..2.2..1.
+       exists (fun γ =>  (transport (P:=fun x => x->_ ) ht1  wt..2.2..1) γ..1).
        split.
        --
-
-   apply:myadmit.
-   apply:myadmit.
-   Defined.
-      exact:xu.
-      have hu2 : projT1 It = projT1 Iu.
-      apply myadmit.
-      apply myadmit.
-  - 
-      set (xu := 
-      set wA := (* wfty_wfctxt  *)(ty_wfty wt).
-      set sA := semTy m _ _ wA.
-      exists (projT1 sA).
-      eexists.
-      apply:(projT1 (projT2 (projT2 (semTm m _ _ wt)))).
-      econstructor.
-      apply myadmit.
-      - apply:myadmit.
-      apply:(semTy_arrow (Γ:=Γ)).
-      exists (projT1 (projT2 sA)).
-    exists (projT1 sA_tot).
-    exists (projT1 (projT2 sA_tot)).
-    + exact:wsA.
-    +
-      set x := (x in spec_semTy  _ _ x).
-      constructor.
-    exists (projT1 (semCtx m _ wΓ)).
-      unshelve eexists.
-      * eapply (semTy m).
+         apply:wesh.
+         ++ assumption.
+         ++ destruct ht1.
+            exact: (wt..2.2..2.1).
+         ++ exact:IB..2.2..2.
+       -- set st := wt..2.2..2.2..1.
+          simple refine (let hf := (_:(forall γ : wt ..1, (wt ..2.2) ..1 γ) =
+                               (forall γ:IB..1, transport (P:= fun x => x-> _) ht1 (wt ..2.2) ..1 γ)) in _).
+          {
+            now destruct ht1.
+          }
+          exists (fun γ => (transport(P:=fun x => x) hf st) γ..1).
+          apply:semTm_S.
+          set yop := wt..2.2..2.2..2.
+          cbn in yop.
+          subst st.
+          clear -yop.
+          destruct ht1.
+          exact:yop.
+Defined.
         exact w.
       *
     +

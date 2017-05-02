@@ -147,6 +147,132 @@ Definition shift_model (m:Model) (x y : m.(Tstar)) : Model.
   - exact m.(Tarrow).
 Defined.
 
+Inductive is_psTerm : forall Γ (A:ctx_ty Γ), ctx_tm _ A -> Type :=
+  is_ps_init : is_psTerm (E empty_star_ctx tt) tt (New_fv _ _ _)
+| is_ps_ar_end Γ A x y f : is_psTerm (TT Γ) (ty_arrow (ctx_ty Γ) (ctx_tm Γ) A x y) f
+                       -> is_psTerm Γ A y
+
+
+| is_ps_tt Γ A t : is_psTerm (TT Γ) (ty_fv _ _ A) (tm_fv  _ _ _ t)
+    (* peut etre inutile *)
+
+| is_ps_ar Γ A x : is_psTerm Γ A x ->
+                   is_psTerm 
+                     (E (TT (E Γ A))
+                                (ty_arrow
+                                   (ctx_ty (E Γ A))
+                                   (ctx_tm (E Γ A))
+                                   A
+                                   (Some_fv 
+                                      (ctx_ty Γ)
+                                      (ctx_tm Γ )
+                                      _ _ x
+                                   )
+                                   (New_fv (ctx_ty Γ)
+                                           (ctx_tm Γ )
+                                           A)
+                             ))
+                     _
+                     (New_fv (ctx_ty (TT (E Γ A)))
+                             (ctx_tm (TT (E Γ A)))
+                             _).
+
+(*
+Inductive is_psTerm : forall Γ (A:ctx_ty Γ), ctx_tm _ A -> Type :=
+  is_ps_init : is_psTerm (E empty_star_ctx tt) tt (New_fv _ _ _)
+| is_ps_ar_end Γ A x y f : is_psTerm (TT Γ) (ty_arrow (ctx_ty Γ) (ctx_tm Γ) A x y) f
+                                     -> finCtx Γ (* je suis obligé de rajouter explicitement
+cette hypothèse car sinon je ne peux pas le montrer à moins de supposer funext ou un truc du genre *)
+                       -> is_psTerm Γ A y
+
+
+| is_ps_tt Γ A t : finCtx Γ -> is_psTerm (TT Γ) (ty_fv _ _ A) (tm_fv  _ _ _ t)
+    (* peut etre inutile *)
+
+| is_ps_ar Γ A x : is_psTerm Γ A x ->
+                   is_psTerm 
+                     (E (TT (E Γ A))
+                                (ty_arrow
+                                   (ctx_ty (E Γ A))
+                                   (ctx_tm (E Γ A))
+                                   A
+                                   (Some_fv 
+                                      (ctx_ty Γ)
+                                      (ctx_tm Γ )
+                                      _ _ x
+                                   )
+                                   (New_fv (ctx_ty Γ)
+                                           (ctx_tm Γ )
+                                           A)
+                             ))
+                     _
+                     (New_fv (ctx_ty (TT (E Γ A)))
+                             (ctx_tm (TT (E Γ A)))
+                             _).
+*)
+
+Fixpoint star_from_finCtx Γ (h:finCtx Γ) : ctx_ty Γ :=
+  match h with
+  (* | fin_empty => (* semTTΓ _ *) empty_semantique (* m *) *)
+  | fin_empty => tt
+  | fin_E c _ h => star_from_finCtx c h
+  | fin_TT c h => ty_fv _ _ (star_from_finCtx c h)
+  end.
+
+
+(*
+Fixpoint finTT_is_fin Γ (h:finCtx (TT Γ)) : finCtx Γ.
+
+  remember (TT Γ) as Γ' eqn:e in h .
+  destruct h.
+  - apply myadmit.
+  -
+*)
+(*
+Fixpoint psTerm_is_fin Γ t A (h:is_psTerm Γ t A) : finCtx Γ.
+  destruct h.
+  - repeat constructor.
+  - assert (h':finCtx (TT Γ)).
+    eapply psTerm_is_fin.
+    exact h.
+    remember (TT Γ) as Γ' eqn:e in h' .
+    assert(e':=f_equal ctx_ty e); cbn in e'.
+    destruct h'; auto; cbn in e'.
+    + apply myadmit.
+    +
+      cbn in e.
+      discriminate.
+
+    cbn in e.
+    apply f_equal
+    destruct e.
+    discriminate.
+    inversion h'.
+Definition is
+*)
+
+Fixpoint is_var Γ A (h:finCtx Γ) (x:ctx_tm Γ A) {struct h} : bool.
+  destruct h.
+  - now exfalso.
+  - destruct x.
+    + apply is_var in c0.
+      exact c0.
+      exact h.
+    + exact true.
+  - destruct x.
+    eapply is_var.
+    exact h.
+    exact v.
+Defined.
+
+Module IsPsCtx.
+  Record t Γ :=
+    { isFin : finCtx Γ;
+      (* obligé de rajouter explicitmenet cette hypothèse *)
+      x: _;
+      ty_x_star : is_var Γ (star_from_finCtx Γ isFin) isFin x = true}.
+End IsPsCtx.
+
 CoInductive gset : Type :=
   { cells : Type;
     suite : cells -> cells -> gset }.
