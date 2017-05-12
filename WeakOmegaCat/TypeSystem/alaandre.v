@@ -312,13 +312,14 @@ Record Model_at Γ :=
 Arguments mod_ctx {Γ} m : rename.
 Arguments mod_typ {Γ} m _ _ : rename.
 Arguments mod_term {Γ} m {_} _ _ : rename.
-Record NextModel Γ (m:ModelOne Γ) (A:base Γ) :=
-  { next_arrowr : forall B (t : Γ B) (u : dTm A (adty_old B)), forall γ : mod_ctx m, m.(mod_typ) A γ -> Type ;
-    next_arrowl : forall (u: Γ A), forall γ : mod_ctx m, m.(mod_typ) A γ -> Type ;
-  next_arrowboth : forall γ : mod_ctx m, m.(mod_typ) A γ -> Type}.
+
+Record Model_ext Γ (m : Model_at Γ) (A : base Γ) :=
+  { mext_arrowr : forall B (t : Γ B) (u : dTm A (adty_old B)), forall γ : mod_ctx m, m.(mod_typ) A γ -> Type ;
+    mext_arrowl : forall (u: Γ A), forall γ : mod_ctx m, m.(mod_typ) A γ -> Type ;
+    mext_arrowboth : forall γ : mod_ctx m, m.(mod_typ) A γ -> Type}.
 
 
-Definition next_model Γ A (m:ModelOne Γ) (s:NextModel m A) : ModelOne (E Γ A).
+Definition next_model Γ A (m:Model_at Γ) (s:Model_ext m A) : Model_at (E Γ A).
   unshelve econstructor.
   - exact (sigT (m.(mod_typ) A)).
   - destruct 1 as [B|B].
@@ -329,12 +330,12 @@ Definition next_model Γ A (m:ModelOne Γ) (s:NextModel m A) : ModelOne (E Γ A)
       induction B as [B t u|B t u|B t u].
       * assert (eAB : A = B) by now inversion u.
         destruct eAB.
-        eapply (s.(next_arrowr) t _ γ..2).
+        eapply (s.(mext_arrowr) t _ γ..2).
       * assert (eAB : A = B) by now inversion t.
         destruct eAB.
-        eapply (s.(next_arrowl) u _ γ..2).
+        eapply (s.(mext_arrowl) u _ γ..2).
       * destruct t.
-        eapply (s.(next_arrowboth) _ γ..2).
+        eapply (s.(mext_arrowboth) _ γ..2).
   - intros B t.
     destruct t as [B t| B t].
     + (* nouveau terme *)
@@ -345,11 +346,11 @@ Defined.
 
     
 CoInductive rec_model Γ A m :=
-  { msig : NextModel m A;
+  { msig : Model_ext m A;
     mmod := @next_model Γ A m msig;
     msuite : forall B, @rec_model (E Γ A) B mmod }.
 
-Definition model_empty (Tstar:Type) : ModelOne empty_ctx.
+Definition model_empty (Tstar:Type) : Model_at empty_ctx.
   unshelve econstructor.
   - exact unit.
   - induction 1.
@@ -364,7 +365,7 @@ Record full_model :=
     mNext : forall B, rec_model B (model_empty mTstar) }.
 
 Definition full_mod_ctx_aux (m:full_model) (Γ : Fam) (fΓ : FinCtx Γ) B :
-  { m' : ModelOne Γ & rec_model (Γ := Γ) B m'}.
+  { m' : Model_at Γ & rec_model (Γ := Γ) B m'}.
   induction fΓ.
   - eexists.
     apply m.(mNext).
@@ -373,7 +374,7 @@ Definition full_mod_ctx_aux (m:full_model) (Γ : Fam) (fΓ : FinCtx Γ) B :
      apply IHfΓ..2.(msuite).
 Defined.
 
-Definition full_mod_ctx (m:full_model)  (Γ : Fam) (fΓ : FinCtx Γ) : ModelOne Γ.
+Definition full_mod_ctx (m:full_model)  (Γ : Fam) (fΓ : FinCtx Γ) : Model_at Γ.
   destruct fΓ.
   - apply (model_empty m.(mTstar)).
   - set ( m' :=full_mod_ctx_aux m fΓ A).
@@ -421,7 +422,7 @@ Proof.
     + apply adtm_old.
       apply (f_tm s _ t).
 Defined.
-Record modelone_mor Γ Δ (s:raw_ctx_mor Γ Δ) (mΓ:ModelOne Γ) (mΔ:ModelOne Δ) :=
+Record modelone_mor Γ Δ (s:raw_ctx_mor Γ Δ) (mΓ:Model_at Γ) (mΔ:Model_at Δ) :=
   { f_mod_ctx : mΓ.(mod_ctx) -> mΔ.(mod_ctx);
     f_mod_typ : forall (A:base Γ) γ, mΓ.(mod_typ) A γ -> mΔ.(mod_typ) (s.(f_ty) A)
                                                                   (f_mod_ctx γ);
@@ -429,23 +430,23 @@ Record modelone_mor Γ Δ (s:raw_ctx_mor Γ Δ) (mΓ:ModelOne Γ) (mΔ:ModelOne 
     (*     mΓ.(mod_term) t γ -> mΔ.(mod_term) (s.(f_tm) t) (f_mod_ctx γ) *)
   }.
 
-Definition lift_sig Γ Δ A (s:raw_ctx_mor Γ Δ) (mΓ:ModelOne Γ)
-           (mΔ:ModelOne Δ) (mor:modelone_mor s mΓ mΔ)
-           (sΔ : NextModel mΔ (s.(f_ty) A)) : NextModel mΓ A.
+Definition lift_sig Γ Δ A (s:raw_ctx_mor Γ Δ) (mΓ:Model_at Γ)
+           (mΔ:Model_at Δ) (mor:modelone_mor s mΓ mΔ)
+           (sΔ : Model_ext mΔ (s.(f_ty) A)) : Model_ext mΓ A.
 Proof.
   unshelve econstructor.
   - intros t γ t_mod.
-    exact (next_arrowr sΔ (f_tm s _ t) _ (mor.(f_mod_typ) _ _ t_mod)).
+    exact (mext_arrowr sΔ (f_tm s _ t) _ (mor.(f_mod_typ) _ _ t_mod)).
   - intros t γ t_mod.
-    exact (next_arrowl sΔ (f_tm s _ t) _ (mor.(f_mod_typ) _ _ t_mod)).
+    exact (mext_arrowl sΔ (f_tm s _ t) _ (mor.(f_mod_typ) _ _ t_mod)).
   - intros  γ t_mod.
-    exact (next_arrowboth sΔ  _ (mor.(f_mod_typ) _ _ t_mod)).
+    exact (mext_arrowboth sΔ  _ (mor.(f_mod_typ) _ _ t_mod)).
 Defined.
 
 
-Definition E_modelone_mor Γ Δ A (s:raw_ctx_mor Γ Δ) (mΓ:ModelOne Γ)
-           (mΔ:ModelOne Δ) (mor:modelone_mor s mΓ mΔ)
-           (sΔ : NextModel mΔ (s.(f_ty) A)) (sΓ := lift_sig A mor sΔ)  :
+Definition E_modelone_mor Γ Δ A (s:raw_ctx_mor Γ Δ) (mΓ:Model_at Γ)
+           (mΔ:Model_at Δ) (mor:modelone_mor s mΓ mΔ)
+           (sΔ : Model_ext mΔ (s.(f_ty) A)) (sΓ := lift_sig A mor sΔ)  :
   modelone_mor (E_raw_ctx_mor ( A) s) (next_model sΓ)(next_model sΔ). 
 Proof.
   unshelve econstructor.
@@ -499,8 +500,8 @@ Proof.
 Defined.
      
 
-CoFixpoint lift_rec_model Γ Δ A (s:raw_ctx_mor Γ Δ) (mΓ:ModelOne Γ)
-           (mΔ:ModelOne Δ) (mor:modelone_mor s mΓ mΔ)
+CoFixpoint lift_rec_model Γ Δ A (s:raw_ctx_mor Γ Δ) (mΓ:Model_at Γ)
+           (mΔ:Model_at Δ) (mor:modelone_mor s mΓ mΔ)
            (yop : rec_model (s.(f_ty) A) mΔ) :
   rec_model A mΓ.
 unshelve econstructor.
@@ -558,7 +559,7 @@ Definition shift_full_model (m:full_model)
 Defined.
 
 (* Version pour les gset : l'interprétation des types renvoie un gset *)
-Record gModelOne Γ :=
+Record gModel_at Γ :=
   { gmod_ctx : Type;
     gmod_typ : forall A : base Γ, gmod_ctx -> gset;
     gmod_term : forall A (t:Γ A), forall γ, objects (gmod_typ A γ) }.
@@ -568,46 +569,46 @@ Arguments gmod_ctx {Γ} m : rename.
 Arguments gmod_typ {Γ} m _ _ : rename.
 Arguments gmod_term {Γ} m {_} _ _ : rename.
 
-Definition gModelOne_to_bare Γ (m:gModelOne Γ) : ModelOne Γ :=
+Definition gModel_at_to_bare Γ (m:gModel_at Γ) : Model_at Γ :=
   {| mod_ctx := gmod_ctx m;
      mod_typ := fun A γ => objects (gmod_typ m A γ);
      mod_term := @gmod_term _ m |}.
 
-Definition simpl_NextModel Γ (m:ModelOne Γ) (A:base Γ) :=
+Definition simpl_Model_ext Γ (m:Model_at Γ) (A:base Γ) :=
   forall γ : mod_ctx m,  m.(mod_typ) A γ -> m.(mod_typ) A γ -> Type.
 
-Definition simpl_NextModel_to_real Γ (m:ModelOne Γ) (A:base Γ)
-           (m' : simpl_NextModel m A) : NextModel m A :=
-  {| next_arrowr := fun t γ su => m' γ (m.(mod_term) t γ) su;
-     next_arrowl := fun u γ st => m' γ st (m.(mod_term) u γ);
-     next_arrowboth := fun γ st => m' γ st st |}.
+Definition simpl_Model_ext_to_real Γ (m:Model_at Γ) (A:base Γ)
+           (m' : simpl_Model_ext m A) : Model_ext m A :=
+  {| mext_arrowr := fun t γ su => m' γ (m.(mod_term) t γ) su;
+     mext_arrowl := fun u γ st => m' γ st (m.(mod_term) u γ);
+     mext_arrowboth := fun γ st => m' γ st st |}.
 
 
 
-Definition simpl_gNextModel Γ (m:ModelOne Γ) (A:base Γ) :=
+Definition simpl_gModel_ext Γ (m:Model_at Γ) (A:base Γ) :=
   forall γ : mod_ctx m,  m.(mod_typ) A γ -> m.(mod_typ) A γ -> gset.
 
-Definition simpl_gNextModel_to_simpl_real Γ (m:gModelOne Γ) (A:base Γ)
-           (m' : simpl_gNextModel (gModelOne_to_bare m) A) : simpl_NextModel
-                                                               (gModelOne_to_bare m) A :=
+Definition simpl_gModel_ext_to_simpl_real Γ (m:gModel_at Γ) (A:base Γ)
+           (m' : simpl_gModel_ext (gModel_at_to_bare m) A) : simpl_Model_ext
+                                                               (gModel_at_to_bare m) A :=
   fun γ x y => objects (m' γ x y).
-Definition infer_gNextModel Γ A (m:gModelOne Γ) :
-  simpl_gNextModel (gModelOne_to_bare m) A :=
+Definition infer_gModel_ext Γ A (m:gModel_at Γ) :
+  simpl_gModel_ext (gModel_at_to_bare m) A :=
   fun γ x y => ((gmod_typ m A γ) x y).
-Record gNextModel Γ (m:gModelOne Γ) (A:base Γ) :=
-  { gnext_arrowr : forall  (t: Γ A), forall γ : gmod_ctx m, objects (m.(gmod_typ) A γ) -> gset ;
-    gnext_arrowl : forall  (u: Γ A), forall γ : gmod_ctx m, objects (m.(gmod_typ) A γ) -> gset ;
-    gnext_arrowboth : forall γ : gmod_ctx m, objects (m.(gmod_typ) A γ) -> gset}.
-Definition simpl_gNextModel_to_real Γ (m:gModelOne Γ) (A:base Γ)
-           (m' : simpl_gNextModel (gModelOne_to_bare m) A) : gNextModel m A :=
-  {| gnext_arrowr := fun t γ su => m' γ (m.(gmod_term) t γ) su;
-     gnext_arrowl := fun u γ st => m' γ st (m.(gmod_term) u γ);
-     gnext_arrowboth := fun γ st => m' γ st st |}.
+Record gModel_ext Γ (m:gModel_at Γ) (A:base Γ) :=
+  { gmext_arrowr : forall  (t: Γ A), forall γ : gmod_ctx m, objects (m.(gmod_typ) A γ) -> gset ;
+    gmext_arrowl : forall  (u: Γ A), forall γ : gmod_ctx m, objects (m.(gmod_typ) A γ) -> gset ;
+    gmext_arrowboth : forall γ : gmod_ctx m, objects (m.(gmod_typ) A γ) -> gset}.
+Definition simpl_gModel_ext_to_real Γ (m:gModel_at Γ) (A:base Γ)
+           (m' : simpl_gModel_ext (gModel_at_to_bare m) A) : gModel_ext m A :=
+  {| gmext_arrowr := fun t γ su => m' γ (m.(gmod_term) t γ) su;
+     gmext_arrowl := fun u γ st => m' γ st (m.(gmod_term) u γ);
+     gmext_arrowboth := fun γ st => m' γ st st |}.
   
 
 
 (* quasiment un copié collé de next_model *)
-Definition gnext_model Γ A (m:gModelOne Γ) (s:gNextModel m A) : gModelOne (E Γ A).
+Definition gnext_model Γ A (m:gModel_at Γ) (s:gModel_ext m A) : gModel_at (E Γ A).
   unshelve econstructor.
   - exact (sigT (fun x => objects (m.(gmod_typ) A x))).
   - destruct 1 as [B|B].
@@ -618,12 +619,12 @@ Definition gnext_model Γ A (m:gModelOne Γ) (s:gNextModel m A) : gModelOne (E �
       induction B as [B t u|B t u|B t u].
       * assert (eAB : A = B) by now inversion u.
         destruct eAB.
-        eapply (s.(gnext_arrowr) t _ γ..2).
+        eapply (s.(gmext_arrowr) t _ γ..2).
       * assert (eAB : A = B) by now inversion t.
         destruct eAB.
-        eapply (s.(gnext_arrowl) u _ γ..2).
+        eapply (s.(gmext_arrowl) u _ γ..2).
       * destruct t.
-        eapply (s.(gnext_arrowboth) _ γ..2).
+        eapply (s.(gmext_arrowboth) _ γ..2).
   - intros B t.
     destruct t as [B t| B t].
     + (* nouveau terme *)
@@ -636,11 +637,11 @@ Definition raw_ctx_mor_id Γ : raw_ctx_mor Γ Γ :=
   {| f_ty := fun x => x;
      f_tm := fun A t => t |}.
 
-Definition gmodel1  Γ B mg : ModelOne (E Γ B) :=
-  gModelOne_to_bare ( gnext_model (simpl_gNextModel_to_real (infer_gNextModel B mg))).
+Definition gmodel1  Γ B mg : Model_at (E Γ B) :=
+  gModel_at_to_bare ( gnext_model (simpl_gModel_ext_to_real (infer_gModel_ext B mg))).
 
-Definition gmodel2  Γ B mg : ModelOne (E Γ B) :=
-    (next_model (simpl_NextModel_to_real (simpl_gNextModel_to_simpl_real (infer_gNextModel B mg)))).
+Definition gmodel2  Γ B mg : Model_at (E Γ B) :=
+    (next_model (simpl_Model_ext_to_real (simpl_gModel_ext_to_simpl_real (infer_gModel_ext B mg)))).
 
 (* sans doute il y a moyen de définir ça sans passer par le morphisme gmodel1 -> gmodel2
 mais j'ai la flemme d'y refélcéhir *)
@@ -690,15 +691,15 @@ Definition mor_gmodel12 Γ B mg : modelone_mor (raw_ctx_mor_id (E Γ B))
       Defined.
 
 
-CoFixpoint gset_to_recmodel_aux Γ (B:base Γ) (mg : gModelOne Γ):
-  rec_model B (gModelOne_to_bare mg).
+CoFixpoint gset_to_recmodel_aux Γ (B:base Γ) (mg : gModel_at Γ):
+  rec_model B (gModel_at_to_bare mg).
   unshelve econstructor.
-  -  eapply simpl_NextModel_to_real.
-     eapply simpl_gNextModel_to_simpl_real.
-     apply infer_gNextModel.
+  -  eapply simpl_Model_ext_to_real.
+     eapply simpl_gModel_ext_to_simpl_real.
+     apply infer_gModel_ext.
   - intros A.
     set (mg' := gnext_model (A:=B) (m:=mg )
-                            (simpl_gNextModel_to_real (infer_gNextModel _ mg))).
+                            (simpl_gModel_ext_to_real (infer_gModel_ext _ mg))).
     set (suite := (gset_to_recmodel_aux _ A mg')).
     apply  myadmit.
     Defined.
@@ -706,17 +707,17 @@ CoFixpoint gset_to_recmodel_aux Γ (B:base Γ) (mg : gModelOne Γ):
     eapply (mor_gmodel12).
     exact suite.
   Defined.
-  mg' := gnext_model (simpl_gNextModel_to_real (infer_gNextModel B mg)) : gModelOne (E Γ B)
+  mg' := gnext_model (simpl_gModel_ext_to_real (infer_gModel_ext B mg)) : gModel_at (E Γ B)
                                                                                     e
-    (next_model (simpl_NextModel_to_real (simpl_gNextModel_to_simpl_real (infer_gNextModel B mg))))
+    (next_model (simpl_Model_ext_to_real (simpl_gModel_ext_to_simpl_real (infer_gModel_ext B mg))))
     Set Printing Implicit.
   :w
      kDefinition gset_to_full_model (g:gset) : full_model.
       
 
-Definition lift_sig Γ Δ A (s:raw_ctx_mor Γ Δ) (mΓ:ModelOne Γ)
-           (mΔ:ModelOne Δ) (mor:modelone_mor s mΓ mΔ)
-           (sΔ : NextModel mΔ (s.(f_ty) A)) : NextModel mΓ A.
+Definition lift_sig Γ Δ A (s:raw_ctx_mor Γ Δ) (mΓ:Model_at Γ)
+           (mΔ:Model_at Δ) (mor:modelone_mor s mΓ mΔ)
+           (sΔ : Model_ext mΔ (s.(f_ty) A)) : Model_ext mΓ A.
 
 Definition shift_ctx_mor Γ (fΓ:FinCtx Γ) : raw_ctx_mor Γ (shift_ctx fΓ)..1.
    econstructor.
@@ -727,21 +728,21 @@ Defined.
 
 
 Definition raw_subst_modelOne Γ Δ (s:raw_subst Γ Δ) (s'
-           (m:ModelOne Δ) : ModelOne Γ.
+           (m:Model_at Δ) : Model_at Γ.
   unshelve econstructor.
   -
 *)
 Definition shift_rec_model Γ (fΓ : FinCtx Γ) (B:base Γ)
-           (m: ModelOne fΓ)
+           (m: Model_at fΓ)
            (* (m:rec_model B (full_mod_ctx fΓ)) *)
-           (m' : ModelOne (shift_ctx fΓ)..1)
+           (m' : Model_at (shift_ctx fΓ)..1)
            (mor : modelone_mor (shift_ctx_mor fΓ) m m')
            (γ0 : mod_ctx (full_mod_ctx m is_fin_simplctx  ) )
-  : { m' : ModelOne (shift_ctx fΓ)..1 &
-           { m'' : ModelOne Γ &
+  : { m' : Model_at (shift_ctx fΓ)..1 &
+           { m'' : Model_at Γ &
                    (rec_model B m'') * (modelone_mor (shift_ctx_mor fΓ) m'' m')
                                          * 
-                         NextModel m'
+                         Model_ext m'
                                    (f_ty (shift_ctx_mor fΓ) B)
     }}%type.
 Proof.
@@ -759,13 +760,13 @@ Definition shift_rec_model Γ (fΓ : FinCtx Γ) (B:base Γ) (m:full_model)
 
 Definition shift_rec_model Γ (fΓ : FinCtx Γ) (B:base Γ) (m:full_model)
            (γ0 : mod_ctx (full_mod_ctx m is_fin_simplctx  ) )
-  : { m' : ModelOne (shift_ctx fΓ)..1 & NextModel m'
+  : { m' : Model_at (shift_ctx fΓ)..1 & Model_ext m'
                                                   ((snd (shift_ctx fΓ)..2)..1 B)}.
 (* nouveau model & ancien model *)
 
 Definition shift_rec_model Γ (fΓ : FinCtx Γ) (B:base Γ) (m:full_model)
            (γ0 : mod_ctx (full_mod_ctx m is_fin_simplctx  ) )
-            : { m' : _ & NextModel m' B}. (* nouveau model & ancien model *)
+            : { m' : _ & Model_ext m' B}. (* nouveau model & ancien model *)
   set (Γ' := shift_ctx fΓ).
   induction fΓ.
   - admit.
@@ -781,9 +782,9 @@ Record ModelTwo :=
         forall (sΓ: Type) (sA : sΓ -> Type) (st su : forall γ, sA γ), sΓ -> Type
   }.
 
-(* Record Model := { all_mod :> forall Γ, FinCtx Γ -> ModelOne Γ; *)
+(* Record Model := { all_mod :> forall Γ, FinCtx Γ -> Model_at Γ; *)
 (*                  nil_unit : mod_ctx (all_mod fin_nil ) = unit }. *)
-Definition one_to_two (m:forall Γ, FinCtx Γ -> ModelOne Γ) : ModelTwo.
+Definition one_to_two (m:forall Γ, FinCtx Γ -> Model_at Γ) : ModelTwo.
   unshelve econstructor.
   - set (m' :=  m _ (fin_cons (ctx_star _) fin_nil)).
     apply (mod_ctx m').
@@ -794,7 +795,7 @@ Definition one_to_two (m:forall Γ, FinCtx Γ -> ModelOne Γ) : ModelTwo.
     eauto with typeclass_instances.
 Defined.
 
-Definition two_to_one (m:ModelTwo) : forall Γ, FinCtx Γ -> ModelOne Γ.
+Definition two_to_one (m:ModelTwo) : forall Γ, FinCtx Γ -> Model_at Γ.
    intro Γ.
     induction 1 as [|Γ A fΓ IHΓ].
   (* unshelve econstructor. *)
@@ -879,9 +880,9 @@ Definition two_to_one (m:ModelTwo) : forall Γ, FinCtx Γ -> ModelOne Γ.
            exact (fun γ => IHΓ.(mod_term) t  γ..1).
 Defined.
 
-(* J'ai donc une fonction one_one de ModelOne vers ModelOne par composition de
+(* J'ai donc une fonction one_one de Model_at vers Model_at par composition de
 one_to_two et de two_to_one. Maintenant j'ai envie de dire qu'un modèle
-est un ModelOne muni d'une fonction de one_one vers lui-même.
+est un Model_at muni d'une fonction de one_one vers lui-même.
 
 Mais pour que ça marche j'aurai besoin d'UIP *)
 
