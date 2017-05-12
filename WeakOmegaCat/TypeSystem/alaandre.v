@@ -2,34 +2,41 @@
 Set Implicit Arguments.
 Axiom myadmit : forall (A:Type) , A.
 (* Inutile  ??? Il suffit de définir l'extension de contexte non ?*)
-Inductive Ty (ty:Type) (fv:ty -> Type) : Type :=
-  ty_fv (A:ty): Ty  fv 
-| ty_star : Ty fv
-| ty_arrow (A:Ty fv) (t u: Term (* ty  *)(* fv  *)A):  Ty (* ty  *)fv
-  with Term (ty:Type) (fv:ty -> Type) : Ty ty fv -> Type :=
-  tm_fv (A:ty) (v:fv A): Term (* ty  fv*) (ty_fv A) .
+Inductive Ty (ty : Type) (term : ty -> Type) : Type :=
+| ty_eta : ty -> Ty term 
+| ty_star : Ty term
+| ty_arrow (A : Ty term) (t u: Term A):  Ty term
+with Term (ty : Type) (term : ty -> Type) : Ty ty term -> Type :=
+     | term_eta (a : ty) (v : term a) : Term (ty_eta a) .
 
-Class PreCtx := Build_PreCtx { ctx_ty : Type; ctx_tm : ctx_ty -> Type}.
-Arguments ctx_ty  _ : clear implicits.
-Arguments ctx_tm  _ _ : clear implicits.
-Class AlgCtx (c:PreCtx) :=
-  Build_AlgCtx
-    { ctx_arrow : forall A (t u :ctx_tm c A), ctx_ty c;
-    ctx_star : ctx_ty c}.
+Record Fam := Build_Fam { base : Type; fam :> base -> Type}.
+
+Definition section A (P : A -> Type) := forall a, P a.
+
+Definition TT (c : Fam) : Fam := Build_Fam (Term (term := c)).
+
+Record Fam_Hom (c d : Fam) :=
+  Build_Fam_Hom { base_hom : base c -> base d ;
+                  fam_hom : forall x : base c, c x -> d (base_hom x) }.
+
+Definition TAlg (c : Fam) := Fam_Hom (TT c) c.
+
+Class FAlg (c : Fam) :=
+  Build_FAlg
+    { ctx_arrow : forall A (t u : c A), base c;
+    ctx_star : base c}.
 
 Arguments ctx_arrow  _ [_ _] _ _ .
 Arguments ctx_star  _ [_].
 
-Definition TT (c:PreCtx) : PreCtx :=
-  Build_PreCtx  (Term (fv:=ctx_tm c)).
 
-Instance AlgTT (c:PreCtx) : AlgCtx (TT c) :=
-  Build_AlgCtx (TT c) (@ty_arrow (ctx_ty c) (ctx_tm c)) (ty_star (ctx_tm c)).
+Instance AlgTT (c : Fam) : FAlg (TT c) :=
+  Build_FAlg (TT c) (@ty_arrow (base c) c) (ty_star c).
 
 
 Section Derivation.
   (* On veut étendre le contexte en ajoutant une variable de type B *)
-  Variables (ty:Type) (fv:ty -> Type) (B:ty).
+  Variables (ty : Type) (term : ty -> Type) (B : ty).
 
   (* adTy : soit un ancien type, soit un nouveau type qu'on peut former grace
 à B
@@ -42,21 +49,21 @@ Section Derivation.
   | adty_new : dTy -> adTy
   with adTm : adTy -> Type :=
        | adtm_new A : dTm A -> adTm A
-       | adtm_old A : fv A -> adTm (adty_old A)
+       | adtm_old A : term A -> adTm (adty_old A)
   with dTy : Type :=
-       | dty_arrowr A (t :fv A) (u:dTm (adty_old A)) : dTy
-       | dty_arrowl A (t :dTm (adty_old A)) (u:fv A) : dTy
-       | dty_arrowboth A (t :dTm A) (u:dTm A) : dTy
+       | dty_arrowr A (t : term A) (u : dTm (adty_old A)) : dTy
+       | dty_arrowl A (t : dTm (adty_old A)) (u : term A) : dTy
+       | dty_arrowboth A (t : dTm A) (u : dTm A) : dTy
   with dTm : adTy -> Type := 
   | dtm_new : dTm (adty_old B).
 End Derivation.
 
 
-  Definition E (c:PreCtx) (A:ctx_ty c) : PreCtx :=
-    Build_PreCtx (ctx_ty:=adTy (ctx_tm c) A) (@adTm _ _ _).
+  Definition E (c : Fam) (a : base c) : Fam :=
+    Build_Fam (base := adTy c a) (@adTm _ _ _).
 
-  Instance AlgE (c:PreCtx) {ac:AlgCtx  c} (A:ctx_ty c) :
-    AlgCtx (E c A).
+  Instance AlgE (c:Fam) {ac : FAlg  c} (A : base c) :
+    FAlg (E c A).
   unshelve econstructor.
   - intros B t u.
     destruct t as [C t | C t].
@@ -76,14 +83,14 @@ End Derivation.
     apply (ctx_star c).
   Defined.
 
-Definition empty_prectx : PreCtx := Build_PreCtx (ctx_ty :=False)  (fun _ => False).
-Definition empty_ctx : PreCtx := TT empty_prectx.
+Definition empty_prectx : Fam := Build_Fam (base := False) (fun _ => False).
+Definition empty_ctx : Fam := TT empty_prectx.
 
-Inductive FinCtx : PreCtx -> Type := 
+Inductive FinCtx : Fam -> Type := 
   fin_nil : FinCtx empty_ctx
 | fin_cons C A :  FinCtx C -> FinCtx (E C A).
 
-Fixpoint algFinCtx C (w:FinCtx C) : AlgCtx C.
+Fixpoint algFinCtx C (w:FinCtx C) : FAlg C.
   destruct w; eauto with typeclass_instances.
 Defined.
 Existing Instance algFinCtx.
@@ -100,8 +107,8 @@ Section GSet_Model.
  Variable (g:gset).
 
   Lemma to_type C (w:FinCtx C) :
-    { sΓ : Type & forall ty : ctx_ty C, { sA : sΓ -> gset &
-                                               forall tm : ctx_tm C ty, forall γ, objects(sA γ)}}.
+    { sΓ : Type & forall ty : base C, { sA : sΓ -> gset &
+                                               forall tm : C ty, forall γ, objects(sA γ)}}.
     induction w.
     - exists unit.
       intro A.
@@ -158,34 +165,34 @@ Section Model_GSet.
     repeat constructor.
   Defined.
 
-Definition t_simplctx : ctx_tm simplctx (ctx_star _) (* (ty_fv _ _ tt) *).
+Definition t_simplctx : simplctx (ctx_star _) (* (ty_fv _ _ tt) *).
   apply adtm_old.
   apply adtm_new.
   constructor.
 Defined.
 
-Definition u_simplctx : ctx_tm simplctx (ctx_star _) (* (ty_fv _ _ tt) *).
+Definition u_simplctx : simplctx (ctx_star _) (* (ty_fv _ _ tt) *).
   apply adtm_new.
   constructor.
 Defined.
 
 Definition transport {A : Type} (P : A -> Type) {x y : A} (p : x = y) (u : P x) : P y :=
   eq_rect x P u y p.
-(* Class Ctx := { ctx_pre : PreCtx; ctx_alg : AlgCtx ctx_pre}. *)
+(* Class Ctx := { ctx_pre : Fam; ctx_alg : FAlg ctx_pre}. *)
 (* Existing Instance ctx_alg. *)
 (*
 but construire Γ' = x,y:*, Δ où Δ est Γ où * est remplacé par x ->* y dans Γ
 
 Finalement, peut etre inutile
 *)
-Definition shift_ctx (Γ : PreCtx) (fΓ : FinCtx Γ) :
-  {Δ : PreCtx &
+Definition shift_ctx (Γ : Fam) (fΓ : FinCtx Γ) :
+  {Δ : Fam &
        (FinCtx Δ *
         {
-          cty : ctx_ty Γ -> ctx_ty Δ &
-                           forall A, ctx_tm _ A -> ctx_tm _ (cty A)
+          cty : base Γ -> base Δ &
+                           forall A, _ A -> _ (cty A)
        }
-            (* (forall A :ctx_ty Γ , {A' : ctx_ty Δ & ctx_tm _ A -> ctx_tm _ A'}) *)
+            (* (forall A :base Γ , {A' : base Δ & _ A -> _ A'}) *)
        )%type
   }.
   induction fΓ.
@@ -297,26 +304,26 @@ Defined.
 Definition ap := f_equal.
 (* Inductive monunit : Type := montt. *)
 
-Record ModelOne Γ :=
-  { ctx_mod : Type;
-    typ_mod : forall A : ctx_ty Γ, ctx_mod -> Type;
-    term_mod : forall A (t:ctx_tm Γ A), forall γ, typ_mod A γ }.
+Record Model_at Γ :=
+  { mod_ctx : Type;
+    mod_typ : base Γ -> mod_ctx -> Type; 
+    mod_term : forall A, Γ A -> section (mod_typ A) }.
 
-Arguments ctx_mod {Γ} m : rename.
-Arguments typ_mod {Γ} m _ _ : rename.
-Arguments term_mod {Γ} m {_} _ _ : rename.
-Record NextModel Γ (m:ModelOne Γ) (A:ctx_ty Γ) :=
-  { next_arrowr : forall  (t: ctx_tm Γ A), forall γ : ctx_mod m, m.(typ_mod) A γ -> Type ;
-    next_arrowl : forall  (u: ctx_tm Γ A), forall γ : ctx_mod m, m.(typ_mod) A γ -> Type ;
-  next_arrowboth : forall γ : ctx_mod m, m.(typ_mod) A γ -> Type}.
+Arguments mod_ctx {Γ} m : rename.
+Arguments mod_typ {Γ} m _ _ : rename.
+Arguments mod_term {Γ} m {_} _ _ : rename.
+Record NextModel Γ (m:ModelOne Γ) (A:base Γ) :=
+  { next_arrowr : forall B (t : Γ B) (u : dTm A (adty_old B)), forall γ : mod_ctx m, m.(mod_typ) A γ -> Type ;
+    next_arrowl : forall (u: Γ A), forall γ : mod_ctx m, m.(mod_typ) A γ -> Type ;
+  next_arrowboth : forall γ : mod_ctx m, m.(mod_typ) A γ -> Type}.
 
 
 Definition next_model Γ A (m:ModelOne Γ) (s:NextModel m A) : ModelOne (E Γ A).
   unshelve econstructor.
-  - exact (sigT (m.(typ_mod) A)).
+  - exact (sigT (m.(mod_typ) A)).
   - destruct 1 as [B|B].
     + (* ancien type *)
-      exact (fun γ => m.(typ_mod) B γ..1).
+      exact (fun γ => m.(mod_typ) B γ..1).
     + (* nouveau type *)
       intro γ.
       induction B as [B t u|B t u|B t u].
@@ -333,7 +340,7 @@ Definition next_model Γ A (m:ModelOne Γ) (s:NextModel m A) : ModelOne (E Γ A)
     + (* nouveau terme *)
       destruct t.
       apply projT2.
-    + exact (fun γ => m.(term_mod)  t γ..1).
+    + exact (fun γ => m.(mod_term)  t γ..1).
 Defined.
 
     
@@ -356,7 +363,7 @@ Record full_model :=
   { mTstar : Type;
     mNext : forall B, rec_model B (model_empty mTstar) }.
 
-Definition full_ctx_mod_aux (m:full_model) (Γ : PreCtx) (fΓ : FinCtx Γ) B :
+Definition full_mod_ctx_aux (m:full_model) (Γ : Fam) (fΓ : FinCtx Γ) B :
   { m' : ModelOne Γ & rec_model (Γ := Γ) B m'}.
   induction fΓ.
   - eexists.
@@ -366,16 +373,16 @@ Definition full_ctx_mod_aux (m:full_model) (Γ : PreCtx) (fΓ : FinCtx Γ) B :
      apply IHfΓ..2.(msuite).
 Defined.
 
-Definition full_ctx_mod (m:full_model)  (Γ : PreCtx) (fΓ : FinCtx Γ) : ModelOne Γ.
+Definition full_mod_ctx (m:full_model)  (Γ : Fam) (fΓ : FinCtx Γ) : ModelOne Γ.
   destruct fΓ.
   - apply (model_empty m.(mTstar)).
-  - set ( m' :=full_ctx_mod_aux m fΓ A).
+  - set ( m' :=full_mod_ctx_aux m fΓ A).
     apply (mmod (m'..2 )).
 Defined.
 
 Record raw_ctx_mor Γ Δ :=
-  { f_ty : ctx_ty Γ -> ctx_ty Δ;
-    f_tm : forall A: ctx_ty Γ, ctx_tm _ A -> ctx_tm _ (f_ty A) }.
+  { f_ty : base Γ -> base Δ;
+    f_tm : forall A: base Γ, _ A -> _ (f_ty A) }.
 
 Definition E_raw_ctx_mor Γ Δ A (s :raw_ctx_mor Γ Δ) : raw_ctx_mor (E Γ A)
                                                                   (E Δ (f_ty s A)).
@@ -415,11 +422,11 @@ Proof.
       apply (f_tm s _ t).
 Defined.
 Record modelone_mor Γ Δ (s:raw_ctx_mor Γ Δ) (mΓ:ModelOne Γ) (mΔ:ModelOne Δ) :=
-  { f_ctx_mod : mΓ.(ctx_mod) -> mΔ.(ctx_mod);
-    f_typ_mod : forall (A:ctx_ty Γ) γ, mΓ.(typ_mod) A γ -> mΔ.(typ_mod) (s.(f_ty) A)
-                                                                  (f_ctx_mod γ);
-    (* f_term_mod :forall A (t:ctx_tm Γ A) γ, *)
-    (*     mΓ.(term_mod) t γ -> mΔ.(term_mod) (s.(f_tm) t) (f_ctx_mod γ) *)
+  { f_mod_ctx : mΓ.(mod_ctx) -> mΔ.(mod_ctx);
+    f_mod_typ : forall (A:base Γ) γ, mΓ.(mod_typ) A γ -> mΔ.(mod_typ) (s.(f_ty) A)
+                                                                  (f_mod_ctx γ);
+    (* f_mod_term :forall A (t:Γ A) γ, *)
+    (*     mΓ.(mod_term) t γ -> mΔ.(mod_term) (s.(f_tm) t) (f_mod_ctx γ) *)
   }.
 
 Definition lift_sig Γ Δ A (s:raw_ctx_mor Γ Δ) (mΓ:ModelOne Γ)
@@ -428,11 +435,11 @@ Definition lift_sig Γ Δ A (s:raw_ctx_mor Γ Δ) (mΓ:ModelOne Γ)
 Proof.
   unshelve econstructor.
   - intros t γ t_mod.
-    exact (next_arrowr sΔ (f_tm s _ t) _ (mor.(f_typ_mod) _ _ t_mod)).
+    exact (next_arrowr sΔ (f_tm s _ t) _ (mor.(f_mod_typ) _ _ t_mod)).
   - intros t γ t_mod.
-    exact (next_arrowl sΔ (f_tm s _ t) _ (mor.(f_typ_mod) _ _ t_mod)).
+    exact (next_arrowl sΔ (f_tm s _ t) _ (mor.(f_mod_typ) _ _ t_mod)).
   - intros  γ t_mod.
-    exact (next_arrowboth sΔ  _ (mor.(f_typ_mod) _ _ t_mod)).
+    exact (next_arrowboth sΔ  _ (mor.(f_mod_typ) _ _ t_mod)).
 Defined.
 
 
@@ -444,19 +451,19 @@ Proof.
   unshelve econstructor.
   - cbn.
     intros γ.
-    exists (mor.(f_ctx_mod) γ..1).
-    apply (mor.(f_typ_mod) _ _ γ..2).
+    exists (mor.(f_mod_ctx) γ..1).
+    apply (mor.(f_mod_typ) _ _ γ..2).
   - intros B γ sB.
     destruct B as [B|B].
     + (* ancien type *)
-      apply (mor.(f_typ_mod)).
+      apply (mor.(f_mod_typ)).
       assumption.
     + (* nouveau type *)
       destruct B as [B t u|B t u | B t u].
       *(*j'en suis la *)
         set (B' := adty_old _ _ _) in u,sB.
         set (u' := transport _ (eq_refl B') u).
-        set (g:= typ_mod _ _ _).
+        set (g:= mod_typ _ _ _).
         change u with u' in sB,g.
         subst u' g.
         revert sB.
@@ -473,7 +480,7 @@ Proof.
       * 
         set (B' := adty_old _ _ _) in t,sB.
         set (t' := transport _ (eq_refl B') t).
-        set (g:= typ_mod _ _ _).
+        set (g:= mod_typ _ _ _).
         change t with t' in sB,g.
         subst t' g.
         revert sB.
@@ -509,10 +516,10 @@ Defined.
 
 
 Definition shift_full_model (m:full_model) 
-           (γ0 : ctx_mod (full_ctx_mod m is_fin_simplctx  ) ) : full_model.
+           (γ0 : mod_ctx (full_mod_ctx m is_fin_simplctx  ) ) : full_model.
   unshelve econstructor.
   - cbn in γ0.
-    eapply (typ_mod (full_ctx_mod m is_fin_simplctx  )).
+    eapply (mod_typ (full_mod_ctx m is_fin_simplctx  )).
     exact arrow_simplctx.
     exact γ0.
   - intros B.
@@ -527,7 +534,7 @@ Definition shift_full_model (m:full_model)
           destruct t; contradiction.
       *  intros ? t; destruct t; contradiction.
     + (* la je ne usi pas sur... *)
-      apply (full_ctx_mod  m (Γ :=simplctx)).
+      apply (full_mod_ctx  m (Γ :=simplctx)).
       apply is_fin_simplctx.
     + (* modelone_mor modele one mor *)
       unshelve econstructor.
@@ -545,56 +552,56 @@ Definition shift_full_model (m:full_model)
         -- destruct t; contradiction.
     + cbn.
       unshelve refine (let monmod :=
-                  full_ctx_mod_aux m is_fin_simplctx 
+                  full_mod_ctx_aux m is_fin_simplctx 
                                    in _).
       eapply ((monmod _)..2).
 Defined.
 
 (* Version pour les gset : l'interprétation des types renvoie un gset *)
 Record gModelOne Γ :=
-  { gctx_mod : Type;
-    gtyp_mod : forall A : ctx_ty Γ, gctx_mod -> gset;
-    gterm_mod : forall A (t:ctx_tm Γ A), forall γ, objects (gtyp_mod A γ) }.
+  { gmod_ctx : Type;
+    gmod_typ : forall A : base Γ, gmod_ctx -> gset;
+    gmod_term : forall A (t:Γ A), forall γ, objects (gmod_typ A γ) }.
 
 
-Arguments gctx_mod {Γ} m : rename.
-Arguments gtyp_mod {Γ} m _ _ : rename.
-Arguments gterm_mod {Γ} m {_} _ _ : rename.
+Arguments gmod_ctx {Γ} m : rename.
+Arguments gmod_typ {Γ} m _ _ : rename.
+Arguments gmod_term {Γ} m {_} _ _ : rename.
 
 Definition gModelOne_to_bare Γ (m:gModelOne Γ) : ModelOne Γ :=
-  {| ctx_mod := gctx_mod m;
-     typ_mod := fun A γ => objects (gtyp_mod m A γ);
-     term_mod := @gterm_mod _ m |}.
+  {| mod_ctx := gmod_ctx m;
+     mod_typ := fun A γ => objects (gmod_typ m A γ);
+     mod_term := @gmod_term _ m |}.
 
-Definition simpl_NextModel Γ (m:ModelOne Γ) (A:ctx_ty Γ) :=
-  forall γ : ctx_mod m,  m.(typ_mod) A γ -> m.(typ_mod) A γ -> Type.
+Definition simpl_NextModel Γ (m:ModelOne Γ) (A:base Γ) :=
+  forall γ : mod_ctx m,  m.(mod_typ) A γ -> m.(mod_typ) A γ -> Type.
 
-Definition simpl_NextModel_to_real Γ (m:ModelOne Γ) (A:ctx_ty Γ)
+Definition simpl_NextModel_to_real Γ (m:ModelOne Γ) (A:base Γ)
            (m' : simpl_NextModel m A) : NextModel m A :=
-  {| next_arrowr := fun t γ su => m' γ (m.(term_mod) t γ) su;
-     next_arrowl := fun u γ st => m' γ st (m.(term_mod) u γ);
+  {| next_arrowr := fun t γ su => m' γ (m.(mod_term) t γ) su;
+     next_arrowl := fun u γ st => m' γ st (m.(mod_term) u γ);
      next_arrowboth := fun γ st => m' γ st st |}.
 
 
 
-Definition simpl_gNextModel Γ (m:ModelOne Γ) (A:ctx_ty Γ) :=
-  forall γ : ctx_mod m,  m.(typ_mod) A γ -> m.(typ_mod) A γ -> gset.
+Definition simpl_gNextModel Γ (m:ModelOne Γ) (A:base Γ) :=
+  forall γ : mod_ctx m,  m.(mod_typ) A γ -> m.(mod_typ) A γ -> gset.
 
-Definition simpl_gNextModel_to_simpl_real Γ (m:gModelOne Γ) (A:ctx_ty Γ)
+Definition simpl_gNextModel_to_simpl_real Γ (m:gModelOne Γ) (A:base Γ)
            (m' : simpl_gNextModel (gModelOne_to_bare m) A) : simpl_NextModel
                                                                (gModelOne_to_bare m) A :=
   fun γ x y => objects (m' γ x y).
 Definition infer_gNextModel Γ A (m:gModelOne Γ) :
   simpl_gNextModel (gModelOne_to_bare m) A :=
-  fun γ x y => ((gtyp_mod m A γ) x y).
-Record gNextModel Γ (m:gModelOne Γ) (A:ctx_ty Γ) :=
-  { gnext_arrowr : forall  (t: ctx_tm Γ A), forall γ : gctx_mod m, objects (m.(gtyp_mod) A γ) -> gset ;
-    gnext_arrowl : forall  (u: ctx_tm Γ A), forall γ : gctx_mod m, objects (m.(gtyp_mod) A γ) -> gset ;
-    gnext_arrowboth : forall γ : gctx_mod m, objects (m.(gtyp_mod) A γ) -> gset}.
-Definition simpl_gNextModel_to_real Γ (m:gModelOne Γ) (A:ctx_ty Γ)
+  fun γ x y => ((gmod_typ m A γ) x y).
+Record gNextModel Γ (m:gModelOne Γ) (A:base Γ) :=
+  { gnext_arrowr : forall  (t: Γ A), forall γ : gmod_ctx m, objects (m.(gmod_typ) A γ) -> gset ;
+    gnext_arrowl : forall  (u: Γ A), forall γ : gmod_ctx m, objects (m.(gmod_typ) A γ) -> gset ;
+    gnext_arrowboth : forall γ : gmod_ctx m, objects (m.(gmod_typ) A γ) -> gset}.
+Definition simpl_gNextModel_to_real Γ (m:gModelOne Γ) (A:base Γ)
            (m' : simpl_gNextModel (gModelOne_to_bare m) A) : gNextModel m A :=
-  {| gnext_arrowr := fun t γ su => m' γ (m.(gterm_mod) t γ) su;
-     gnext_arrowl := fun u γ st => m' γ st (m.(gterm_mod) u γ);
+  {| gnext_arrowr := fun t γ su => m' γ (m.(gmod_term) t γ) su;
+     gnext_arrowl := fun u γ st => m' γ st (m.(gmod_term) u γ);
      gnext_arrowboth := fun γ st => m' γ st st |}.
   
 
@@ -602,10 +609,10 @@ Definition simpl_gNextModel_to_real Γ (m:gModelOne Γ) (A:ctx_ty Γ)
 (* quasiment un copié collé de next_model *)
 Definition gnext_model Γ A (m:gModelOne Γ) (s:gNextModel m A) : gModelOne (E Γ A).
   unshelve econstructor.
-  - exact (sigT (fun x => objects (m.(gtyp_mod) A x))).
+  - exact (sigT (fun x => objects (m.(gmod_typ) A x))).
   - destruct 1 as [B|B].
     + (* ancien type *)
-      exact (fun γ => m.(gtyp_mod) B γ..1).
+      exact (fun γ => m.(gmod_typ) B γ..1).
     + (* nouveau type *)
       intro γ.
       induction B as [B t u|B t u|B t u].
@@ -622,7 +629,7 @@ Definition gnext_model Γ A (m:gModelOne Γ) (s:gNextModel m A) : gModelOne (E �
     + (* nouveau terme *)
       destruct t.
       apply projT2.
-    + exact (fun γ => m.(gterm_mod)  t γ..1).
+    + exact (fun γ => m.(gmod_term)  t γ..1).
 Defined.
 
 Definition raw_ctx_mor_id Γ : raw_ctx_mor Γ Γ :=
@@ -683,7 +690,7 @@ Definition mor_gmodel12 Γ B mg : modelone_mor (raw_ctx_mor_id (E Γ B))
       Defined.
 
 
-CoFixpoint gset_to_recmodel_aux Γ (B:ctx_ty Γ) (mg : gModelOne Γ):
+CoFixpoint gset_to_recmodel_aux Γ (B:base Γ) (mg : gModelOne Γ):
   rec_model B (gModelOne_to_bare mg).
   unshelve econstructor.
   -  eapply simpl_NextModel_to_real.
@@ -724,12 +731,12 @@ Definition raw_subst_modelOne Γ Δ (s:raw_subst Γ Δ) (s'
   unshelve econstructor.
   -
 *)
-Definition shift_rec_model Γ (fΓ : FinCtx Γ) (B:ctx_ty Γ)
+Definition shift_rec_model Γ (fΓ : FinCtx Γ) (B:base Γ)
            (m: ModelOne fΓ)
-           (* (m:rec_model B (full_ctx_mod fΓ)) *)
+           (* (m:rec_model B (full_mod_ctx fΓ)) *)
            (m' : ModelOne (shift_ctx fΓ)..1)
            (mor : modelone_mor (shift_ctx_mor fΓ) m m')
-           (γ0 : ctx_mod (full_ctx_mod m is_fin_simplctx  ) )
+           (γ0 : mod_ctx (full_mod_ctx m is_fin_simplctx  ) )
   : { m' : ModelOne (shift_ctx fΓ)..1 &
            { m'' : ModelOne Γ &
                    (rec_model B m'') * (modelone_mor (shift_ctx_mor fΓ) m'' m')
@@ -740,24 +747,24 @@ Definition shift_rec_model Γ (fΓ : FinCtx Γ) (B:ctx_ty Γ)
 Proof.
 Admitted.
 
-Definition shift_rec_model Γ (fΓ : FinCtx Γ) (B:ctx_ty Γ) (m:full_model)
-           (γ0 : ctx_mod (full_ctx_mod m is_fin_simplctx  ) )
+Definition shift_rec_model Γ (fΓ : FinCtx Γ) (B:base Γ) (m:full_model)
+           (γ0 : mod_ctx (full_mod_ctx m is_fin_simplctx  ) )
   induction fΓ.
   - unshelve eexists.
     + unshelve econstructor.
       * exact
-          (typ_mod (full_ctx_mod m is_fin_simplctx) (ctx_arrow _ t_simplctx u_simplctx) γ0).
+          (mod_typ (full_mod_ctx m is_fin_simplctx) (ctx_arrow _ t_simplctx u_simplctx) γ0).
       *
 
 
-Definition shift_rec_model Γ (fΓ : FinCtx Γ) (B:ctx_ty Γ) (m:full_model)
-           (γ0 : ctx_mod (full_ctx_mod m is_fin_simplctx  ) )
+Definition shift_rec_model Γ (fΓ : FinCtx Γ) (B:base Γ) (m:full_model)
+           (γ0 : mod_ctx (full_mod_ctx m is_fin_simplctx  ) )
   : { m' : ModelOne (shift_ctx fΓ)..1 & NextModel m'
                                                   ((snd (shift_ctx fΓ)..2)..1 B)}.
 (* nouveau model & ancien model *)
 
-Definition shift_rec_model Γ (fΓ : FinCtx Γ) (B:ctx_ty Γ) (m:full_model)
-           (γ0 : ctx_mod (full_ctx_mod m is_fin_simplctx  ) )
+Definition shift_rec_model Γ (fΓ : FinCtx Γ) (B:base Γ) (m:full_model)
+           (γ0 : mod_ctx (full_mod_ctx m is_fin_simplctx  ) )
             : { m' : _ & NextModel m' B}. (* nouveau model & ancien model *)
   set (Γ' := shift_ctx fΓ).
   induction fΓ.
@@ -770,20 +777,20 @@ Definition shift_rec_model Γ (fΓ : FinCtx Γ) (B:ctx_ty Γ) (m:full_model)
 
 Record ModelTwo :=
   { star_mod : Type;
-    arrow_mod :forall Γ A (t u:ctx_tm Γ A), FinCtx Γ ->
+    arrow_mod :forall Γ A (t u:Γ A), FinCtx Γ ->
         forall (sΓ: Type) (sA : sΓ -> Type) (st su : forall γ, sA γ), sΓ -> Type
   }.
 
 (* Record Model := { all_mod :> forall Γ, FinCtx Γ -> ModelOne Γ; *)
-(*                  nil_unit : ctx_mod (all_mod fin_nil ) = unit }. *)
+(*                  nil_unit : mod_ctx (all_mod fin_nil ) = unit }. *)
 Definition one_to_two (m:forall Γ, FinCtx Γ -> ModelOne Γ) : ModelTwo.
   unshelve econstructor.
   - set (m' :=  m _ (fin_cons (ctx_star _) fin_nil)).
-    apply (ctx_mod m').
+    apply (mod_ctx m').
   - intros Γ A t u fΓ sΓ sA st su .
     intro γ.
-    refine { e : sΓ = ctx_mod (m _ fΓ) &
-                typ_mod (m _ fΓ) (ctx_arrow Γ t u) (transport _ e γ) }.
+    refine { e : sΓ = mod_ctx (m _ fΓ) &
+                mod_typ (m _ fΓ) (ctx_arrow Γ t u) (transport _ e γ) }.
     eauto with typeclass_instances.
 Defined.
 
@@ -800,18 +807,18 @@ Definition two_to_one (m:ModelTwo) : forall Γ, FinCtx Γ -> ModelOne Γ.
         -- destruct t; contradiction.
       * intros A t.
         destruct t; contradiction.
-    + set (sΓ := (sigT (IHΓ.( typ_mod) A))).
+    + set (sΓ := (sigT (IHΓ.( mod_typ) A))).
       unshelve econstructor.
       -- apply sΓ.
       -- induction 1 as [B|B].
          ++ (* ancien type *)
-           exact (fun x => IHΓ.(typ_mod) B x..1).
+           exact (fun x => IHΓ.(mod_typ) B x..1).
          ++ (* nouveau type *)
            intro γ.
            induction B as [B t u|B t u| B t u].
            ** simple refine (@arrow_mod m (E Γ A) (adty_old _ A B) _ _ _ 
                                           (sΓ )
-                                          (fun γ =>  (IHΓ.(typ_mod) B γ..1))
+                                          (fun γ =>  (IHΓ.(mod_typ) B γ..1))
                                           _ _ γ
                                ).
               --- apply adtm_old.
@@ -821,7 +828,7 @@ Definition two_to_one (m:ModelTwo) : forall Γ, FinCtx Γ -> ModelOne Γ.
                   inversion u.
                   constructor.
               --- now constructor.
-              --- exact (fun γ => IHΓ.(term_mod)  t γ..1).
+              --- exact (fun γ => IHΓ.(mod_term)  t γ..1).
               --- intro γ'.
                   inversion u.
                   pattern B.
@@ -830,7 +837,7 @@ Definition two_to_one (m:ModelTwo) : forall Γ, FinCtx Γ -> ModelOne Γ.
                   exact γ'..2.
            ** simple refine (@arrow_mod m (E Γ A) (adty_old _ A B) _ _ _ 
                                           (sΓ )
-                                          (fun γ =>  (IHΓ.(typ_mod) B γ..1))
+                                          (fun γ =>  (IHΓ.(mod_typ) B γ..1))
                                           _ _ γ
                                ).
               --- apply adtm_new.
@@ -846,12 +853,12 @@ Definition two_to_one (m:ModelTwo) : forall Γ, FinCtx Γ -> ModelOne Γ.
                   eapply transport.
                   eassumption.
                   exact γ'..2.
-              --- exact (fun γ => IHΓ.(term_mod)  u γ..1).
+              --- exact (fun γ => IHΓ.(mod_term)  u γ..1).
            ** destruct t.
               set (B:=A).
              simple refine (@arrow_mod m (E Γ A) (adty_old _ A B) _ _ _
                                           (sΓ )
-                                          (fun γ =>  (IHΓ.(typ_mod) B γ..1))
+                                          (fun γ =>  (IHΓ.(mod_typ) B γ..1))
                                           _ _ γ
                                ).
               --- apply adtm_new.
@@ -869,7 +876,7 @@ Definition two_to_one (m:ModelTwo) : forall Γ, FinCtx Γ -> ModelOne Γ.
            apply projT2.
          ++ (* ancien terme *)
            cbn.
-           exact (fun γ => IHΓ.(term_mod) t  γ..1).
+           exact (fun γ => IHΓ.(mod_term) t  γ..1).
 Defined.
 
 (* J'ai donc une fonction one_one de ModelOne vers ModelOne par composition de
@@ -881,29 +888,29 @@ Mais pour que ça marche j'aurai besoin d'UIP *)
 (*
 Class Model := 
   { (* ctxempty_mod : Type; *)
-    (* ctxcons_mod : forall Γ (fΓ : FinCtx Γ) (A:ctx_ty Γ), Type; *)
-    ctx_mod : forall Γ, FinCtx Γ -> {
+    (* ctxcons_mod : forall Γ (fΓ : FinCtx Γ) (A:base Γ), Type; *)
+    mod_ctx : forall Γ, FinCtx Γ -> {
                     } ;
-    (* ctx_mod : forall Γ, FinCtx Γ -> Type := *)
+    (* mod_ctx : forall Γ, FinCtx Γ -> Type := *)
     (*   @FinCtx_rect _ unit (fun Γ A f _ => ctxcons_mod  f A); *)
 
     (* forall Γ, FinCtx Γ -> Type; *)
     (* star_mod : Type; *)
-    typ_mod : forall Γ (fΓ  :FinCtx Γ) (A : ctx_ty Γ), ctx_mod  fΓ -> Type;
-    typ_term:  forall Γ (fΓ  :FinCtx Γ) (A : ctx_ty Γ) (t:ctx_tm _ A)
-                 (γ : ctx_mod  fΓ), typ_mod (* fΓ  *)A γ
-        (* ctx_mod fΓ; *)
+    mod_typ : forall Γ (fΓ  :FinCtx Γ) (A : base Γ), mod_ctx  fΓ -> Type;
+    typ_term:  forall Γ (fΓ  :FinCtx Γ) (A : base Γ) (t:_ A)
+                 (γ : mod_ctx  fΓ), mod_typ (* fΓ  *)A γ
+        (* mod_ctx fΓ; *)
 
 
-    (* unit_eq : ctx_mod fin_nil = unit; *)
+    (* unit_eq : mod_ctx fin_nil = unit; *)
 
   }.
 *)
 
   Variable (m:Model).
-  (* (x y: typ_mod (all_mod m fin_nil) (ctx_star _) *)
+  (* (x y: mod_typ (all_mod m fin_nil) (ctx_star _) *)
   (*                                      (transport (fun x => x) (eq_sym (nil_unit m)) tt )) *)
-  Definition shift_model (g:ctx_mod (m simplctx is_fin_simplctx))  : Model.
+  Definition shift_model (g:mod_ctx (m simplctx is_fin_simplctx))  : Model.
     unshelve econstructor.
     - intros Γ fΓ.
       induction fΓ.
@@ -915,7 +922,7 @@ Class Model :=
           -- (* star *)
             set (Δ := shift_ctx fin_nil).
             intros _.
-            apply (typ_mod (all_mod m (fst Δ..2))).
+            apply (mod_typ (all_mod m (fst Δ..2))).
             ++ apply (snd Δ..2)..1.
                refine (ctx_star _).
             ++ exact g.
@@ -924,18 +931,18 @@ Class Model :=
           destruct 1 ; contradiction.
       + (* Extension de contexte *)
         unshelve econstructor.
-        * apply (sigT (typ_mod IHfΓ A)).
+        * apply (sigT (mod_typ IHfΓ A)).
         * destruct 1 as [B|B].
           -- (* ancien type *)
             intro γ.
-            apply (typ_mod IHfΓ A γ..1).
+            apply (mod_typ IHfΓ A γ..1).
           -- (* nouveau type *)
             
              
 
             cbn in Δ.
 
-  (* Definition shift_model  (x y: typ_mod fin_nil (ctx_star _) *)
+  (* Definition shift_model  (x y: mod_typ fin_nil (ctx_star _) *)
   (*                                      tt ) : Model. *)
     unshelve econstructor .
     - intros Γ fΓ A.
@@ -945,9 +952,9 @@ Class Model :=
     - intros Γ fΓ A γ.
       set (shift := shift_ctx fΓ).
 
-  set (h:= ctx_mod (is_fin_simplctx)).
+  set (h:= mod_ctx (is_fin_simplctx)).
   set (tar := ctx_arrow _ t_simplctx u_simplctx).
-  set (h' := typ_mod (is_fin_simplctx) tar  ).
+  set (h' := mod_typ (is_fin_simplctx) tar  ).
   unshelve econstructor.
   - 
 
@@ -988,15 +995,15 @@ Record Model :=
   Build_Model {
       Tstar : Type;
       Tarrow : forall (Γ : Ctx) (sΓ : Type),
-          forall (A : ctx_ty Γ) (sA : sΓ -> Type) ,
-            ctx_tm Γ A -> ctx_tm Γ A ->
+          forall (A : base Γ) (sA : sΓ -> Type) ,
+            Γ A -> Γ A ->
             forall (st su : forall γ, sA γ),
             sΓ -> Type}.
 
 Record Semantique Γ :=
   { sΓ : Type;
-    styΓ: forall A:ctx_ty Γ, sΓ -> Type;
-    stmΓ : forall (A:ctx_ty Γ) (t:ctx_tm Γ A) (γ : sΓ), styΓ A γ}.
+    styΓ: forall A:base Γ, sΓ -> Type;
+    stmΓ : forall (A:base Γ) (t:Γ A) (γ : sΓ), styΓ A γ}.
 
 Definition empty_semantique : Semantique empty_ctx :=
   {| sΓ := unit; styΓ := fun _ _ => unit; stmΓ := fun _ _ _ => tt |}.
@@ -1004,7 +1011,7 @@ Definition empty_semantique : Semantique empty_ctx :=
 Definition empty_star_semantique (m:Model) : Semantique empty_star_ctx :=
  {|
  sΓ := unit;
- styΓ := fun (_ : ctx_ty empty_star_ctx) (_ : unit) => Tstar m;
+ styΓ := fun (_ : base empty_star_ctx) (_ : unit) => Tstar m;
  stmΓ := fun (_ : unit) (t : False) (_ : unit) => False_rect (Tstar m) t |}. Section model.
 
   Variables (Γ : Ctx) (semΓ : Semantique Γ).
@@ -1012,10 +1019,10 @@ Definition empty_star_semantique (m:Model) : Semantique empty_star_ctx :=
 
 
   Section model_EE.
-    Variable (A:ctx_ty Γ).
+    Variable (A:base Γ).
     Definition sΓA  : Type := sigT (semΓ.(styΓ _) A).
-    Definition styΓA  (B:ctx_ty (E Γ A)) (x:sΓA) : Type := semΓ.(styΓ _) B (projT1 x).
-    Definition stmΓA  (B:ctx_ty (E Γ A)) (t:ctx_tm (E Γ A) B) (γ : sΓA)
+    Definition styΓA  (B:base (E Γ A)) (x:sΓA) : Type := semΓ.(styΓ _) B (projT1 x).
+    Definition stmΓA  (B:base (E Γ A)) (t:(E Γ A) B) (γ : sΓA)
       : styΓA B γ :=
       match t in (derive_tm _ _ _ y) return (styΓA y γ) with
       | Some_fv _ _ _ B0 t0 => semΓ.(stmΓ _) B0 t0 (projT1 γ)
@@ -1029,7 +1036,7 @@ Definition empty_star_semantique (m:Model) : Semantique empty_star_ctx :=
     Variable (m:Model).
 
     Definition sTTΓ := semΓ.(sΓ _).
-    Definition styTTΓ  (A:ctx_ty (TT Γ)) (x:semΓ.(sΓ _)) : Type :=
+    Definition styTTΓ  (A:base (TT Γ)) (x:semΓ.(sΓ _)) : Type :=
       match A with
       | ty_fv _ _ A0 => semΓ.(styΓ _) A0 x
       (* | ty_star _ _ => m.(Tstar) *)
@@ -1039,7 +1046,7 @@ Definition empty_star_semantique (m:Model) : Semantique empty_star_ctx :=
                                          (semΓ.(stmΓ _) A0 u) x
       end.
 
-    Definition stmTTΓ  (B:ctx_ty (TT Γ )) (t:ctx_tm _ B) (γ : sTTΓ)
+    Definition stmTTΓ  (B:base (TT Γ )) (t:_ B) (γ : sTTΓ)
       : styTTΓ B γ :=
       match t in (Term _ _ t0) return (styTTΓ t0 γ) with
       | tm_fv _ _ A v => semΓ.(stmΓ _) A v γ
@@ -1053,7 +1060,7 @@ End model.
 Inductive finCtx : Ctx  -> Type :=
   (* fin_empty : finCtx (empty_ctx) *)
   fin_empty : finCtx (empty_star_ctx)
-| fin_E c (A:ctx_ty c) : finCtx c -> finCtx ( (E c A))
+| fin_E c (A:base c) : finCtx c -> finCtx ( (E c A))
 | fin_TT c  : finCtx c -> finCtx (TT c ).
 Fixpoint semType (m:Model) Γ (e:finCtx Γ) : Semantique Γ :=
   match e in (finCtx c) return (Semantique c) with
@@ -1070,23 +1077,23 @@ Lemma is_fin_simplctx : finCtx simplctx.
   repeat constructor.
 Defined.
 
-Definition t_simplctx : ctx_tm simplctx _ (* (ty_fv _ _ tt) *) :=
+Definition t_simplctx : simplctx _ (* (ty_fv _ _ tt) *) :=
   (* tm_fv _ _ _ *)
   (Some_fv _ _ _ _
      (New_fv _ _ _)).
 
-Definition u_simplctx : ctx_tm simplctx _ (* (ty_fv _ _ tt) *) :=
+Definition u_simplctx : simplctx _ (* (ty_fv _ _ tt) *) :=
   (* tm_fv _ _ _ *)
   ((New_fv _ _ _)).
 
 Definition shift_model (m:Model) (x y : m.(Tstar)) : Model.
   set (h := semType m _ is_fin_simplctx).
-  (* set (tm := ctx_tm simplctx (ty_star _ _)). *)
+  (* set (tm := simplctx (ty_star _ _)). *)
   (* cbn  in tm. *)
   (* assert ( *)
   (* set (t := tm_fv _ _ _ (New_fv _ _ _ ): tm). *)
   (* set (u := Some_fv _ _ _ _ (New_fv _ _ _)  : tm). *)
-  set (tar := ty_arrow _ _ _ t_simplctx u_simplctx: ctx_ty (TT simplctx)).
+  set (tar := ty_arrow _ _ _ t_simplctx u_simplctx: base (TT simplctx)).
   set (h' := semTTΓ _ h m).
   econstructor.
   - eapply (styΓ _ h' tar).
@@ -1097,9 +1104,9 @@ Definition shift_model (m:Model) (x y : m.(Tstar)) : Model.
   - exact m.(Tarrow).
 Defined.
 
-Inductive is_psTerm : forall Γ (A:ctx_ty Γ), ctx_tm _ A -> Type :=
+Inductive is_psTerm : forall Γ (A:base Γ), _ A -> Type :=
   is_ps_init : is_psTerm (E empty_star_ctx tt) tt (New_fv _ _ _)
-| is_ps_ar_end Γ A x y f : is_psTerm (TT Γ) (ty_arrow (ctx_ty Γ) (ctx_tm Γ) A x y) f
+| is_ps_ar_end Γ A x y f : is_psTerm (TT Γ) (ty_arrow (base Γ) (Γ) A x y) f
                        -> is_psTerm Γ A y
 
 
@@ -1110,27 +1117,27 @@ Inductive is_psTerm : forall Γ (A:ctx_ty Γ), ctx_tm _ A -> Type :=
                    is_psTerm 
                      (E (TT (E Γ A))
                                 (ty_arrow
-                                   (ctx_ty (E Γ A))
-                                   (ctx_tm (E Γ A))
+                                   (base (E Γ A))
+                                   ((E Γ A))
                                    A
                                    (Some_fv 
-                                      (ctx_ty Γ)
-                                      (ctx_tm Γ )
+                                      (base Γ)
+                                      (Γ )
                                       _ _ x
                                    )
-                                   (New_fv (ctx_ty Γ)
-                                           (ctx_tm Γ )
+                                   (New_fv (base Γ)
+                                           (Γ )
                                            A)
                              ))
                      _
-                     (New_fv (ctx_ty (TT (E Γ A)))
-                             (ctx_tm (TT (E Γ A)))
+                     (New_fv (base (TT (E Γ A)))
+                             ((TT (E Γ A)))
                              _).
 
 (*
-Inductive is_psTerm : forall Γ (A:ctx_ty Γ), ctx_tm _ A -> Type :=
+Inductive is_psTerm : forall Γ (A:base Γ), _ A -> Type :=
   is_ps_init : is_psTerm (E empty_star_ctx tt) tt (New_fv _ _ _)
-| is_ps_ar_end Γ A x y f : is_psTerm (TT Γ) (ty_arrow (ctx_ty Γ) (ctx_tm Γ) A x y) f
+| is_ps_ar_end Γ A x y f : is_psTerm (TT Γ) (ty_arrow (base Γ) (Γ) A x y) f
                                      -> finCtx Γ (* je suis obligé de rajouter explicitement
 cette hypothèse car sinon je ne peux pas le montrer à moins de supposer funext ou un truc du genre *)
                        -> is_psTerm Γ A y
@@ -1143,25 +1150,25 @@ cette hypothèse car sinon je ne peux pas le montrer à moins de supposer funext
                    is_psTerm 
                      (E (TT (E Γ A))
                                 (ty_arrow
-                                   (ctx_ty (E Γ A))
-                                   (ctx_tm (E Γ A))
+                                   (base (E Γ A))
+                                   ((E Γ A))
                                    A
                                    (Some_fv 
-                                      (ctx_ty Γ)
-                                      (ctx_tm Γ )
+                                      (base Γ)
+                                      (Γ )
                                       _ _ x
                                    )
-                                   (New_fv (ctx_ty Γ)
-                                           (ctx_tm Γ )
+                                   (New_fv (base Γ)
+                                           (Γ )
                                            A)
                              ))
                      _
-                     (New_fv (ctx_ty (TT (E Γ A)))
-                             (ctx_tm (TT (E Γ A)))
+                     (New_fv (base (TT (E Γ A)))
+                             ((TT (E Γ A)))
                              _).
 *)
 
-Fixpoint star_from_finCtx Γ (h:finCtx Γ) : ctx_ty Γ :=
+Fixpoint star_from_finCtx Γ (h:finCtx Γ) : base Γ :=
   match h with
   (* | fin_empty => (* semTTΓ _ *) empty_semantique (* m *) *)
   | fin_empty => tt
@@ -1186,7 +1193,7 @@ Fixpoint psTerm_is_fin Γ t A (h:is_psTerm Γ t A) : finCtx Γ.
     eapply psTerm_is_fin.
     exact h.
     remember (TT Γ) as Γ' eqn:e in h' .
-    assert(e':=f_equal ctx_ty e); cbn in e'.
+    assert(e':=f_equal base e); cbn in e'.
     destruct h'; auto; cbn in e'.
     + apply myadmit.
     +
