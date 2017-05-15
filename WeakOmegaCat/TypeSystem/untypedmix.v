@@ -882,6 +882,38 @@ CoFixpoint empty_gset : gset := {| objects :=  False ;
                                    hom := fun _ _ => empty_gset  |}.
 
 
+Axiom myadmit : forall {A:Type} , A.
+Section gset_to_model.
+  Variable (g:gset).
+  Fixpoint to_type Γ (wΓ : wfCtx Γ) {struct wΓ} : Type%type
+  with to_fun Γ A (wA : Γ |- A) {struct wA} : ((forall sΓ, sΓ -> gset)*Type)%type
+  with to_term Γ A t (wt : Γ |- t : A) {struct wt} :
+         ((forall sΓ (sA : sΓ -> gset) γ, objects (sA γ)) *((forall sΓ, sΓ -> gset)*(Type))
+         )% type.
+  - case:Γ /wΓ.
+    + exact unit.
+    + move => Γ A /to_fun.
+      move => h.
+      exact  (sigT (fun γ : h.2 => objects (h.1 _ γ))).
+  - case: Γ A / wA.
+    + move => Γ /to_type sΓ.
+      split.
+      * exact (fun _ _ => g).
+      * exact:sΓ.
+    + move => Γ A t u /to_term [st [sAt sΓt ]] /to_term [su [sAu sΓu ]].
+      refine (_, sΓt).
+      move => sΓ γ.
+      unshelve eapply hom.
+      apply:(sAt _ γ).
+      apply:st.
+      apply:su.
+  - case:Γ A t / wt.
+    + move => Γ A /to_fun [sA sΓ_A].
+      refine (_, (sA,sΓ_A)).
+      
+Defined.
+                                             
+  End gset_to_model.
 Fixpoint get_vars (x y : var) (Γ : list term) (n:nat) : list var :=
   if (x == 0) || (y == 0) then
     nil
@@ -1047,7 +1079,6 @@ with wfTy_mut := Induction for wfTy Sort Type
 with ty_mut := Induction for ty Sort Type.
 
 *)
-Axiom myadmit : forall {A:Type} , A.
 
 (*
 *******
@@ -1157,6 +1188,7 @@ Notation "x ..2" := (projT2 x) (at level 2).
 Record Model :=
   Build_Model {
       Tstar : Type;
+      (* sans doute trop particulier *)
       Tarrow : forall (Γ : ctx) (sΓ : Type),
           forall (A : term ) (sA : sΓ -> Type) (t u : term),
             Γ |- t : A -> Γ |- u : A ->
@@ -1197,7 +1229,8 @@ with spec_semTy (m:Model) : ctx -> term -> forall semC : Type, (semC -> Type) ->
        semTy_star Γ sΓ: @spec_semTy m Γ tyUnit sΓ (fun _ => Tstar m)
      | semTy_arrow Γ sΓ A sA t u (st su:forall γ:sΓ, sA γ) (wt: Γ |- t: A)( wu:Γ|- u:A) :
          spec_semCtx m Γ sΓ 
-         -> spec_semTm m t sA -> spec_semTm m u sA 
+         -> spec_semTm m t st -> spec_semTm m u su  ->
+         spec_semTy m Γ A sA
          -> @spec_semTy m Γ (tyAr A t u) sΓ
                                          (m.(Tarrow) wt wu st su )
 with spec_semTm (m:Model) : term -> forall semC (semA : semC -> Type),
@@ -1215,7 +1248,9 @@ with spec_semTm_mut := Induction for spec_semTm Sort Type.
 (* Notation "p # u" := (transport _ p u) (right associativity, at level 65, only parsing). *)
 
 Definition projT1_path {A} {P : A -> Type} {u v : sigT P} (p : u = v)
-  : projT1 u = projT1 v := ap (@projT1 _ _) p.
+  : projT1 u = projT1 v.
+    exact:( ap (@projT1 _ _) p).
+Defined.
 
 (* Notation "p ..1" := (projT1_path p) (at level 3). *)
 
@@ -1229,13 +1264,339 @@ Definition projT2_path {A} {P : A -> Type} {u v : sigT P} (p : u = v)
   destruct u,v.
   clear.
   now destruct ( p).
-Defined.
+  Defined.
 
 Class K := Kaxiom : forall A (x:A), all_equal_to (erefl x).
+
+Module CustomElim.
+  (*
+  Class Modele :=
+    { (* arguments du schéma d'éliminatino en mode fibration.
+Le vrai PC sera { x: Type, PC x}
+       *)
+      PC : forall Γ, wfCtx Γ -> Type -> Type;
+      PA : forall Γ A (wA: Γ |- A) (sΓ : Type) (sΓ':PC (wfty_wfctxt wA) sΓ),
+             (sΓ -> Type) ->  Type;
+      Pt : forall Γ A t (wt : Γ |- t : A) (sΓ:Type) (sΓ' : PC _ sΓ)
+             (sA : sΓ -> Type) (sA' :  PA (wA:=(ty_wfty wt))  sΓ' sA)
+             (st : forall γ, sA γ),  Type;
+
+      Tstar : Type;
+      Tstar' : forall Γ (wΓ:wfCtx Γ) sΓ sΓ', PA (wA := wfUnit wΓ)
+                                           (sΓ := sΓ) (sΓ') (fun _ => Tstar);
+      Tarrow : forall (Γ : ctx) (A t u :term) (wt : Γ |- t: A) (wu:Γ|- u:A)
+                 (wA := ty_wfty wt)
+                   (wΓ := wfty_wfctxt wA)
+                   (wAr := wfAr wt wu) 
+                   (sΓ' : PC wΓ)
+                   (sA' : PA sΓ), Type.
+
+
+
+
+    }.
+      (* et leurs projections *)
+      projC : forall Γ (wΓ : wfCtx Γ), PC wΓ -> Type;
+      projA : forall Γ A (wA : Γ |- A) (wΓ := wfty_wfctxt wA)
+                (sΓ : PC wΓ), PA sΓ -> projC sΓ -> Type;
+      projt : forall Γ A t (wt : Γ |- t : A) (wA := ty_wfty wt) sΓ sA,
+          Pt (wt:=wt) (sΓ := sΓ) sA -> forall (γ : projC sΓ),
+            projA sA γ;
+
+      (* mais alors il faudra imposer que ca se comporte bien par weakening *)
+      Tstar : forall Γ (wΓ : wfCtx Γ) (sΓ : PC wΓ), PA (wA :=wfUnit wΓ) sΓ}.
+*)
+  (* une version plus précise d'un modèle  *)
+  (* mais pour définir Tarrow c'est galère.
+il faut que j'impose les conditions de weakening *)
+  Class Modele :=
+    { (* arguments du schéma d'éliminatino *)
+      PC : forall Γ, wfCtx Γ -> Type;
+      PA : forall Γ A (wA: Γ |- A), PC (wfty_wfctxt wA) -> Type;
+      Pt : forall Γ A t (wt : Γ |- t : A) (sΓ : PC _), PA (wA:=(ty_wfty wt)) sΓ -> Type;
+      (* et leurs projections *)
+      projC : forall Γ (wΓ : wfCtx Γ), PC wΓ -> Type;
+      projA : forall Γ A (wA : Γ |- A) (wΓ := wfty_wfctxt wA)
+                (sΓ : PC wΓ), PA sΓ -> projC sΓ -> Type;
+      projt : forall Γ A t (wt : Γ |- t : A) (wA := ty_wfty wt) sΓ sA,
+          Pt (wt:=wt) (sΓ := sΓ) sA -> forall (γ : projC sΓ),
+            projA sA γ;
+
+      PCnil : PC wfEmpty;
+      PCext : forall (Γ : ctx) (A : term) (wA : Γ |- A),
+          forall sΓ : PC (wfty_wfctxt wA),
+            PA sΓ -> PC (wfCtxNext wA);
+
+      (* mais alors il faudra imposer que ca se comporte bien par weakening *)
+      Tstar :  forall Γ (wΓ:wfCtx Γ) (sΓ : PC wΓ), PA (wA :=wfUnit wΓ) sΓ}.
+  
+  (* Ce qui se passe avant est galère à cause des transports incessants.
+Ici je tente une nouvelle approche où je met s des arguments superflues
+(Γ |- alors que Γ |- A est déja donné)
+*)
+  Module Lax.
+  Class Modele :=
+    { (* arguments du schéma d'éliminatino *)
+      PC : forall Γ, wfCtx Γ -> Type;
+      PA : forall Γ A (wA: Γ |- A) (wΓ:wfCtx Γ), PC wΓ -> Type;
+      Pt : forall Γ A t (wt : Γ |- t : A) (wA : Γ |- A) wΓ (sΓ : PC wΓ),
+          PA wA sΓ -> Type;
+
+      PCnil : PC wfEmpty;
+      PCext : forall (Γ : ctx) (A : term) (wA : Γ |- A) wΓ,
+          forall sΓ : PC wΓ,
+            PA wA sΓ -> PC (wfCtxNext wA);
+      (* Je suis obligé de mettre le weakening explicite sur les types pour définir
+       les termes.
+Ceci vient toujours du fait que je ne peux pas définir
+ma théorie des types par un inductif inductif récursif où la partie récursif
+servirait à définir la substitution.
+
+Question : - A quoi ressemblerait le schéma d'élimination si on autorisait un tel
+inductif inductif récursif ?
+- Quid du schéma d'élimination lorsque la substitution est spécifiée par un inducti?
+
+       *)
+      PAext: forall Γ A B (wΓ : wfCtx Γ) (wA : Γ |- A) (wB : Γ |- B) 
+               (sΓ : PC wΓ) (sA : PA wA sΓ) (sB : PA wB sΓ),
+          PA (weakening_type wA wB)(PCext sB);
+
+      (* mais alors il faudra imposer que ca se comporte bien par weakening *)
+      Tstar :  forall Γ (wΓ:wfCtx Γ) (sΓ : PC wΓ), PA (wfUnit wΓ) sΓ;
+      Tarrow : forall Γ (A t u :term) (wΓ : wfCtx Γ) (wA : Γ |- A)
+                 (wt:Γ |- t:A) (wu:Γ |- u: A) (wAr :=wfAr wt wu)
+                 (sΓ : PC wΓ) (sA : PA wA sΓ)
+                 (st : Pt wt sA) (su: Pt wu sA), PA wAr sΓ;
+
+      Tvar0 : forall Γ (A:term) (wΓ : wfCtx Γ) (wA : Γ |- A)
+                (sΓ : PC wΓ) (sA : PA wA sΓ),
+          Pt  (ty_var0 wA) (PAext sA sA);
+      TwkTerm : forall Γ (A B t:term) (wΓ : wfCtx Γ) (wA : Γ |- A) (wB : Γ |- B)
+                  (wt : Γ |- t : A)
+                  (sΓ : PC wΓ) (sA : PA wA sΓ) (sB : PA wB sΓ)
+                  (st : Pt wt sA),
+          Pt  (ty_termS wt wB) (PAext sA sB)
+    }.
+
+  Section testm.
+    Context {m:Modele}.
+    Definition uPC Γ (wΓ:wfCtx Γ) := PC wΓ.
+    Definition uPA Γ A (wA : Γ |-A) := ((forall sΓ:PC (wfty_wfctxt wA),  PA wA sΓ)
+    * PC (wfty_wfctxt wA))%type.
+    Definition uPt Γ A t (wt : Γ |-t:A) (wA := ty_wfty wt) (wΓ := wfty_wfctxt wA) :=
+      ((forall (sΓ:PC wΓ) (sA : PA wA sΓ),  Pt wt sA)*
+       (forall sΓ :PC wΓ ,  PA wA sΓ))%type.
+      (* {sΓ : PC wΓ & {sA : PA wA sΓ & Pt wt sA}}. *)
+
+    
+
+    Fixpoint semantique_ctx Γ (wΓ : wfCtx Γ) {struct wΓ} : uPC wΓ with
+    semantique_typ Γ A (wA:Γ |- A) {struct wA} : uPA  wA with
+    semantique_term Γ A t (wt:Γ|-t:A) {struct wt} :uPt wt.
+    - case :Γ / wΓ.
+      + apply:PCnil.
+      + move => Γ A wA.
+        assert (hA := semantique_typ _ _ wA).
+        apply:PCext.
+        apply:hA.1.
+        Unshelve.
+        apply:hA.2.
+    - case : Γ A / wA.
+      + move => Γ wΓ.
+        split.
+        * move => sΓ. 
+          apply:Tstar.
+        * rewrite (uniq_wfctxt (wfty_wfctxt _) wΓ).
+          apply:semantique_ctx.
+      + move => Γ A t u wt wu.
+        have [It sΓ] := ( semantique_term _ _ _ wt).
+        have [Iu sΓ'] := ( semantique_term _ _ _ wu).
+        set w3 := (x in PC x)  in sΓ.
+        set w2 := (x in PC x)  in sΓ'.
+        split.
+        * rewrite (uniq_wfctxt (wfty_wfctxt _) w3).
+          move => sΓ''.
+          set sA := sΓ sΓ''.
+          specialize (It sΓ'' sA).
+          apply:Tarrow.
+          exact:It.
+          have h:= (uniq_wfctxt w3 w2).
+          subst w3.
+          apply:Iu.
+          apply:It.
+          eapply (It _)..2.
+          have  {w3} -> : w3 = w1 by apply:uniq_wfctxt.
+        exists sΓ.
+        apply:Tarrow.
+        apply:st.
+        have wfty_wfctxt
+
+        assert (hu := semantique_term _ _ _ wu).
+    - apply:myadmit.
+    Defined.
+      + apply:myadmit.
+    
+
+
+
+  Definition J (A : Type) (x :A) (P:forall y:A, x=y -> Type) : P x erefl ->forall y e,  P y e.
+    now destruct e.
+  Defined.
+  Definition pull_PA {m:Modele} Γ A  (wA wA' : Γ |- A) (sΓ:PC (wfty_wfctxt wA)) (sA : PA sΓ) e :
+    PA (wA :=wA') (transport (P := fun x => PC x) e sΓ).
+    assert (eqe : e=ap _ (uniq_wfty _ _)).
+    {
+         apply:allequals_eqirrelevance.
+         apply:uniq_wfctxt.
+    }
+    destruct (esym eqe) using J.
+    destruct (uniq_wfty _ _) using J.
+    exact:sA.
+  Defined.
+  (* Definition pull_PA' {m:Modele} Γ A A' (wA:Γ |- A) ( wA' : Γ |- A') (sΓ:PC (wfty_wfctxt wA)) (sA : PA sΓ) e : *)
+  (*   PA (wA :=wA') (transport (P := fun x => PC x) e sΓ). *)
+
+      (* obligé de rajouter le weakening sur les types pour définir les termes-variables
+, quitte à dire qu'il est égal au weakening induit sur les termes après coup *)
+      (* TODO : peut être généraliser à toute substitution ?? *)
+  Class ModelExt {m:Modele} := {
+      PAext: forall Γ A B (wA : Γ |- A) (wB : Γ |- B) (wΓ := wfty_wfctxt wA)
+               (sΓ : PC wΓ) (sA : PA sΓ) (sB : PA (wA := wB)
+                                                  (transport
+                                                     (uniq_wfctxt _ _)
+                                                     sΓ)), 
+                                  PA (wA := weakening_type wA wB)
+                                     (transport (uniq_wfctxt _ _ ) (PCext  ((* transport *)
+                                              (*   (P:= fun x => PC x) *)
+                                              (*   (uniq_wfctxt _ _)  *)sB)))}.
+
+
+  Section test.
+    Context (m:Modele).
+
+     Lemma Tarrow : forall (Γ : ctx) (A t u :term) (wt : Γ |- t: A) (wu:Γ|- u:A)
+                 (wA := ty_wfty wt)
+                   (wΓ := wfty_wfctxt wA)
+                   (wAr := wfAr wt wu)
+                   (sΓ : PC (wfty_wfctxt (ty_wfty wt)))
+                   (sA : PA sΓ), Type.
+       intros.
+       unshelve refine (Pt (wt:= wt) sA -> Pt (wt:=wu) _ -> PA (wA :=wfAr wt wu) _).
+       - apply:(transport  (P:= fun x => PC x) _ sΓ).
+         apply:uniq_wfctxt.
+       -  apply:pull_PA .
+          exact:sA.
+       -  apply:transport _ (sΓ).
+          apply:uniq_wfctxt.
+     Defined.
+
+    (* J'ai besoin du weakening su rles types ... *)
+     Lemma T_termS {me : ModelExt} (Γ:ctx) (A B t : term)
+           (wt : Γ |- t: A)
+           (wA := ty_wfty wt)
+           (wB : Γ |- B)
+           (sΓ : PC (wfty_wfctxt wA))
+           (sA : PA sΓ)
+           (sB : PA (wA := wB) (transport (uniq_wfctxt _ _) sΓ))
+           (st : Pt sA): Type.
+       unshelve refine (Pt  (wt :=ty_termS wt wB) (sΓ:=_) _).
+       - 
+         apply:transport (PCext sB).
+         apply:uniq_wfctxt.
+       - simpl.
+         exact:( PAext (wA := wA) (wB := wB) (sΓ :=sΓ) sA sB).
+     Defined.
+     Lemma T_term0 {me : ModelExt} (Γ:ctx) (A : term) (wA : Γ |- A)
+           (sΓ : PC (wfty_wfctxt wA)) (sA : PA sΓ): Type.
+       unshelve refine (Pt  (wt:=ty_var0 wA) (sΓ:=_) _ ).
+       - assert (sΓA' := PCext   sA).
+       apply:transport sΓA'.
+       apply:uniq_wfctxt.
+       - 
+       simpl.
+
+       assert (e : sΓ = (transport (uniq_wfctxt (wfty_wfctxt wA) (wfty_wfctxt wA)) sΓ)).
+       {
+       pattern (uniq_wfctxt (wfty_wfctxt wA) (wfty_wfctxt wA)).
+       apply:transport (erefl _) (uniq_wfctxt (wfty_wfctxt wA) (wfty_wfctxt wA))  _ _.
+       apply:esym.
+       apply:allequals_axiomK.
+       apply:uniq_wfctxt.
+       reflexivity.
+       }
+       assert (sA' := PAext (wA := wA) (wB := wA) (sΓ :=sΓ) sA (transport e sA)).
+       destruct e using J.
+       exact:sA'.
+       exact:sA'.
+       specialize (
+       
+       (pull_PA sA _)).
+       move:sA'.
+       pattern (uniq_wfctxt (wfty_wfctxt wA) (wfty_wfctxt wA)).
+       apply:transport (erefl _) (uniq_wfctxt (wfty_wfctxt wA) (wfty_wfctxt wA))  _ _.
+       apply:esym.
+       apply:allequals_axiomK.
+       apply:uniq_wfctxt.
+       simpl.
+       easy.
+       elim:  (allequals_axiomK _ (uniq_wfctxt _ _) ) / _.
+       clear.
+       set e := uniq_wfctxt _ _.
+       set e' := uniq_wfctxt _ _.
+       destruct (uniq_wfctxt _ _) using J.
+
+       assert (sB' : PA (transport (P := (uniq_wfctxt _ _) sΓ)).
+       set e:=uniq_wfctxt _ _.
+       move:(PCext sA).
+       clearbody e.
+       clear.
+       Set Printing Implicit.
+       destruct e using J.
+       apply:pull_PA.
+       set wΓA := wfty_wfctxt _.
+       assert (he :wΓA = PCext
+       apply:PCext.
+       PCext (wA:=wA) (sΓ := _) _) _).
+         induction eΓ.
+         destruct eqe.
+         set e := (e in transport e _).
+         clearbody e.
+         clear.
+         change sΓ with (transport erefl sΓ) at 2.
+         destruct e.
+         Set Printing Implicit.
+         f_equal.
+         destruct uniq_wf
+          destruct ewA.
+         have eΓ : sΓ
+
+         apply:(transport  (P:= fun x => PA x) _ sA).
+       
+          Pt (wt:=wt) sA -> Pt (wt:=wu)
+                              (transport (P:= fun x => PA(wA:= x)
+                                                      (transport
+                                                         (P := fun x => PC x)
+                                                         (uniq_wfctxt _ _) sΓ)
+                                         ) (uniq_wfty _ _) sA)  ->
+          PA (wA := wAr) (transport (P:= fun x=> PC x) (uniq_wfctxt _ _) sΓ) }.
+                    
+          forall (A : term ) (sA : sΓ -> Type) (t u : term),
+            Γ |- t : A -> Γ |- u : A ->
+            forall (st su : forall γ, sA γ),
+              sΓ -> Type;
+
+
+
+    }.
+                                                                        
+End CustomElim.
+
 
 Section UniqSem.
   Context {k:K}.
   Variable (m:Model).
+
+
 
   Fixpoint uniq_semCtx  (Γ:ctx) (wΓ:wfCtx Γ) sΓ sΓ' 
            (spec:spec_semCtx m Γ sΓ) {struct spec} :   spec_semCtx m Γ sΓ' -> sΓ = sΓ' 
@@ -1284,7 +1645,7 @@ Section UniqSem.
       subst; cbn.
       inversion 1.
       reflexivity.
-    + move => Γ sΓ A sA t u st su wt wu spΓ spt spu war.
+    + move => Γ sΓ A sA t u st su wt wu spΓ spt spu spA war.
       move => (* sΓ' e *) sA'.
       inversion 1.
       subst.
@@ -1292,25 +1653,40 @@ Section UniqSem.
       cbn in z.
       rewrite -z.
       rewrite Kaxiom //=.
-      have -> : wt0 = wt by apply:uniq_term.
-      have -> : wu0 = wu by apply:uniq_term.
-      have est : st = st0.
-      eapply f_equal.
-      f_equal.
-      congr (Tarrow _ _ _ _ _).
-      etransitivity; last first.
-      cbn in z.
-      exact z.
-      apply (projT2_path H5).
-      rewrite -(projT2_path (H5)).
-      have eΓ : sΓ = sΓ.
-      subst.
-      cbn.
-      (* Aie ! j'ai besoin d'UIP.. *)
-      case:H5 => [e e'].
-    apply:myadmit.
-Defined.
-
+      have ewt : wt0 = wt by apply:uniq_term.
+      have ewu : wu0 = wu by apply:uniq_term.
+      have esA : sA = sA1.
+      {apply:uniq_semTy.
+       apply:(ty_wfty wt).
+       exact:spA.
+       assumption.
+      }
+      subst wt0.
+      subst wu0.
+      (* rewrite ewt ewu. *)
+      have -> : (   st0 = transport (P:= fun x => forall y, x y) esA st).
+      {
+        apply:esym.
+        apply:uniq_semTm.
+        exact:wt.
+        clear -spt.
+          by destruct esA.
+        assumption.
+      }
+      have -> : su0 = transport (P:= fun x => forall y, x y) esA su.
+      {
+        apply:esym.
+        apply:uniq_semTm.
+        exact:wu.
+        now clear -spu; destruct esA.
+        assumption.
+     }
+      clear.
+      now destruct esA.
+  - case:t sΓ sA st / spec wt st'.
+    + move => {A Γ} Γ sΓ A sA specA _ st'.
+      inversion 1.
+  Qed.
 
 Lemma wesh m Γ A (B:term) (sΓ : Type)  (sA sB : sΓ -> Type) (wB: Γ |- B) :
   spec_semTy m Γ A sA ->

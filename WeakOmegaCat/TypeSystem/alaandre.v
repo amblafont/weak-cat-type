@@ -177,6 +177,7 @@ Definition transport {A : Type} (P : A -> Type) {x y : A} (p : x = y) (u : P x) 
 but construire Γ' = x,y:*, Δ où Δ est Γ où * est remplacé par x ->* y dans Γ
 
 Finalement, peut etre inutile
+En fait je ne l'utilise qu'une seule fois sur le contexte vide
 *)
 Definition shift_ctx (Γ : PreCtx) (fΓ : FinCtx Γ) :
   {Δ : PreCtx &
@@ -629,14 +630,88 @@ Definition raw_ctx_mor_id Γ : raw_ctx_mor Γ Γ :=
   {| f_ty := fun x => x;
      f_tm := fun A t => t |}.
 
+Section GModels2.
+
+  Variables (Γ : PreCtx) (B : ctx_ty Γ) (mg : gModelOne Γ).
+  Variables(m:ModelOne Γ)
+      (mod_mor : modelone_mor (raw_ctx_mor_id _) m (gModelOne_to_bare mg)).
+  Definition gmodel1 : ModelOne (E Γ B):=
+    (next_model
+       (lift_sig B mod_mor
+          (simpl_NextModel_to_real
+             (simpl_gNextModel_to_simpl_real
+                (infer_gNextModel (f_ty (raw_ctx_mor_id Γ) B)
+                   mg))))).
+  Definition gmodel2 : ModelOne (E Γ B) :=
+    (gModelOne_to_bare
+       (gnext_model
+          (simpl_gNextModel_to_real (infer_gNextModel B mg)))).
+
+(* sans doute il y a moyen de définir ça sans passer par le morphisme gmodel1 -> gmodel2
+mais j'ai la flemme d'y refélcéhir *)
+Definition mor_gmodel12 : modelone_mor (raw_ctx_mor_id (E Γ B))
+                                              gmodel1 gmodel2.
+  unshelve econstructor.
+  { cbn.
+    intros γ.
+    eexists.
+    eapply (f_typ_mod mod_mor).
+    exact γ..2.
+  }
+  intros A γ.
+  destruct A as [A|A].
+  - (* ancien type *)
+    eapply (f_typ_mod mod_mor).
+  - (* nouveau type *)
+    induction A.
+    +
+        set (B' := adty_old _ _ _) in *.
+        set (u' := transport _ (eq_refl B') u).
+        change u with u'.
+        subst u' .
+        generalize (eq_refl B').
+        unfold B' at 2.
+        destruct u.
+        intro e.
+        injection e.
+        intro e'.
+        destruct e'.
+        assert (he : e = eq_refl) by apply myadmit.
+        subst e.
+        cbn.
+        easy.
+    +
+        set (B' := adty_old _ _ _) in *.
+        set (u' := transport _ (eq_refl B') t).
+        change t with u'.
+        subst u' .
+        generalize (eq_refl B').
+        unfold B' at 2.
+        destruct t.
+        intro e.
+        injection e.
+        intro e'.
+        destruct e'.
+        assert (he : e = eq_refl) by apply myadmit.
+        subst e.
+        cbn.
+        easy.
+    + now destruct t.
+      Defined.
+
+
+
+  (*
 Definition gmodel1  Γ B mg : ModelOne (E Γ B) :=
   gModelOne_to_bare ( gnext_model (simpl_gNextModel_to_real (infer_gNextModel B mg))).
 
 Definition gmodel2  Γ B mg : ModelOne (E Γ B) :=
     (next_model (simpl_NextModel_to_real (simpl_gNextModel_to_simpl_real (infer_gNextModel B mg)))).
+*)
 
 (* sans doute il y a moyen de définir ça sans passer par le morphisme gmodel1 -> gmodel2
 mais j'ai la flemme d'y refélcéhir *)
+(*
 Definition mor_gmodel12 Γ B mg : modelone_mor (raw_ctx_mor_id (E Γ B))
                                               (gmodel2 B mg) (gmodel1 B mg).
   unshelve econstructor.
@@ -681,7 +756,31 @@ Definition mor_gmodel12 Γ B mg : modelone_mor (raw_ctx_mor_id (E Γ B))
         easy.
     + now destruct t.
       Defined.
+*)
 
+End GModels2.
+(* Je suis obligé d'introduire ce m intermédiaire, et ce morphisme
+de modèle, moralement égale à l'identité, car sinon la condition de
+garde n'est pas vérifiée *)
+CoFixpoint gset_to_recmodel_aux Γ (B:ctx_ty Γ) (mg : gModelOne Γ)
+           (m:ModelOne Γ)
+           (mod_mor : modelone_mor (raw_ctx_mor_id _) m (gModelOne_to_bare mg)) :
+  rec_model B m.
+  (* rec_model B (gModelOne_to_bare mg). *)
+  unshelve econstructor.
+  - eapply lift_sig.
+    exact mod_mor.
+    eapply simpl_NextModel_to_real.
+     eapply simpl_gNextModel_to_simpl_real.
+     apply infer_gNextModel.
+  - intros A.
+    set (mg' := gnext_model (A:=B) (m:=mg )
+                            (simpl_gNextModel_to_real (infer_gNextModel _ mg))).
+    unshelve eapply (gset_to_recmodel_aux _ A mg').
+    eapply mor_gmodel12.
+  Defined.
+  (* OUIIII *)
+  (* Tout ce qui vient après est pourri *)
 
 CoFixpoint gset_to_recmodel_aux Γ (B:ctx_ty Γ) (mg : gModelOne Γ):
   rec_model B (gModelOne_to_bare mg).
@@ -690,10 +789,52 @@ CoFixpoint gset_to_recmodel_aux Γ (B:ctx_ty Γ) (mg : gModelOne Γ):
      eapply simpl_gNextModel_to_simpl_real.
      apply infer_gNextModel.
   - intros A.
+                 lift_rec_model A (mor_gmodel12 B mg)
+               (gset_to_recmodel_aux (E Γ B) A
+                  (gnext_model
+                     (simpl_gNextModel_to_real
+                        (infer_gNextModel B mg)))) |})
+
+    eapply (lift_rec_model (Δ:= E Γ B) A).
+    eapply (mor_gmodel12).
+    Guarded.
+    eapply (gset_to_recmodel_aux _ A).
+    Show Proof.
+    df:w
+         Guarded.
     set (mg' := gnext_model (A:=B) (m:=mg )
                             (simpl_gNextModel_to_real (infer_gNextModel _ mg))).
     set (suite := (gset_to_recmodel_aux _ A mg')).
-    apply  myadmit.
+   : rec_model A (gModelOne_to_bare mg')
+
+  rec_model A
+    (next_model
+       (simpl_NextModel_to_real
+          (simpl_gNextModel_to_simpl_real
+             (infer_gNextModel B mg))))
+    apply myadmit.
+    Show Proof.
+    (cofix
+ gset_to_recmodel_aux (Γ : PreCtx) (B : ctx_ty Γ)
+                      (mg : gModelOne Γ) :
+   rec_model B (gModelOne_to_bare mg) :=
+   {|
+   msig := simpl_NextModel_to_real
+             (simpl_gNextModel_to_simpl_real
+                (infer_gNextModel B mg));
+   msuite := fun A : ctx_ty (E Γ B) =>
+             let mg' :=
+               gnext_model
+                 (simpl_gNextModel_to_real
+                    (infer_gNextModel B mg)) in
+             let suite := gset_to_recmodel_aux (E Γ B) A mg'
+               in
+             myadmit
+               (rec_model A
+                  (next_model
+                     (simpl_NextModel_to_real
+                        (simpl_gNextModel_to_simpl_real
+                           (infer_gNextModel B mg))))) |})
     Defined.
     eapply (lift_rec_model (Δ:= E Γ B) A).
     eapply (mor_gmodel12).
