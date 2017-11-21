@@ -4,7 +4,6 @@
 les types mutuellement inductifs *)
 (* Je pack les interprétations dans un record pour la relation fonctionnelle *)
 (* coqc -q -Q "WeakOmegaCat" WeakOmegaCat WeakOmegaCat/TypeSystem/libhomot.v *)
-Require Import libhomot.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -24,618 +23,13 @@ TODO :  remplacer la r_gle Γ,x:A ⊢ en prémisse par Γ ⊢ A
 Require Import EqdepFacts.
 Require Import Coq.Logic.JMeq.
 Require Import ssreflect ssrfun ssrbool .
+Require Import libhomot lib brunerietype.
 (* From mathcomp Require Import ssreflect ssrfun ssrbool eqtype ssrnat seq. *)
 Set Bullet Behavior "Strict Subproofs".
-(* Require Import Eqdep. *)
-Notation "x ..1" := (projT1 x) (at level 2).
-Notation "x ..2" := (projT2 x) (at level 2).
-Notation "x ,Σ y" := (existT _ x y)  (at level 70).
-Notation "x ≅ y" := (JMeq  x  y) (at level 70, y at next level, no associativity).
 
-Ltac etrans := eapply trans_eq.
 
-Lemma transport (A : Type) (x : A) (P : A -> Type) (y : A)(e : x = y)  (Px : P x) : P y.
-Proof.
-  apply:eq_rect e => //=.
-Defined.
-Lemma transport2 (A : Type)  (P : A -> Type)(Q : forall (a:A), P a -> Type)
-      (x : A) (p : P x)(y : A)(q : P y)(e : x = y)(e' : p ≅ q)  (Px : Q _ p) : Q _ q.
-Proof.
-  destruct e.
-  apply JMeq_eq in e'.
-  by destruct e'.
-Defined.
 
-(* je le réécris en defined *)
-Lemma JMeq_sym : forall (A B:Type) (x:A) (y:B), JMeq x y -> JMeq y x.
-Proof. 
-intros; destruct H; trivial.
-Defined.
 
-Axiom funext : forall (A : Type) (B : A -> Type) (f g : forall a, B a),
-    (forall a, f a = g a) -> f = g.
-
-Lemma uip (A : Type) (x y : A) (e e' : x =y) : e = e'.
-  apply JMeq_eq.
-  destruct e.
-  destruct e'.
-  reflexivity.
-Qed.
-Lemma JMeq_eq_refl A (x  : A) : JMeq_eq (JMeq_refl (x:=x)) = erefl.
-  apply:uip.
-  Qed.
-Lemma JMeq_eq_rect (A : Type) (x : A) (P : A -> Type) (Px : P x) (y : A) (w : x= y) :
-      eq_rect x P Px y w ≅ Px.
-  now destruct w.
-Defined.
-Lemma JMeq_eq_rect_r (A : Type) (x : A) (P : A -> Type) (Px : P x) (y : A) (w : y= x) :
-      @eq_rect_r A x P Px y w ≅ Px.
-  now destruct w.
-Defined.
-
-Lemma JM_eq_eq_rect_r (A : Type) (x : A) (P : A -> Type) (Px : P x) (y : A) (w : y= x) Py :
-    Px ≅ Py ->
-      @eq_rect_r A x P Px y w = Py.
-  destruct w.
-  now move/(@JMeq_eq _ _ _).
-Qed.
-Lemma JM_eq_eq_rect (A : Type) (x : A) (P : A -> Type) (Px : P x) (y : A) (w : x= y) Py :
-    Px ≅ Py ->
-      @eq_rect A x P Px y w = Py.
-  destruct w.
-  now move/(@JMeq_eq _ _ _).
-Qed.
-
-Lemma JMeq_transport2  (A : Type)  (P : A -> Type)(Q : forall (a:A), P a -> Type)
-      (x : A) (p : P x)(y : A)(q : P y)(e : x = y)(e' : p ≅ q)  (Px : Q _ p) :
-  transport2 e e' Px ≅ Px.
-Proof.
-  destruct e.
-  simpl.
-  by destruct (JMeq_eq e').
-Qed.
-Lemma JM_projT2  (A : Type) (P : A -> Type) (a b : {x : A & P x})
-      (e : a = b) : a..2 ≅ b..2.
-Proof.
-  now destruct e.
-Qed.
-
-Lemma JMeq_from_eq (A : Type) (x y : A) : x = y -> x ≅ y.
-  by destruct 1.
-Qed.
-
-Ltac clear_jmsigma :=
-  match goal with
-  | x : (?C ,Σ ?D) = (?C ,Σ ?E) |- _ =>
-    have {x} x : D = E by apply : JMeq_eq;apply:(JM_projT2  x)
-  | x : ?C = ?C |- _ => clear x
-  end.
-
-  
-
-Lemma JMeq_eq_r  (A : Type) (x y : A) : x = y -> x ≅ y.
-now destruct 1.
-Qed.
-
-Lemma JMeq_congr3 (A : Type) (B : A -> Type)(D: Type) (C : forall a : A, B a -> D)
-      (x x' : A) (b : B x) (b'  : B x') : x = x' -> b ≅ b' -> C x b = C x' b'.
-destruct 1.
-move => eb.
-apply JMeq_eq in eb.
-now destruct eb.
-Qed.
-Lemma JMeq_congr4 (A : Type) (B : A -> Type) (C : forall a : A, B a -> Type)
-      (D : Type) (E : forall a b (c : @C a b), D)
-      (x x' : A) (b : B x) (b'  : B x')
-      (c : C _ b) (c' : C _ b')
-  : x = x' -> b ≅ b' -> c ≅ c' -> E  _ _ c =  E _ _ c'.
-destruct 1.
-move => eb ec.
-apply JMeq_eq in eb.
-destruct eb.
-apply JMeq_eq in ec.
-now destruct ec.
-Qed.
-Lemma JMeq_reflh_eq_rect_r (A : Type) (x : A) (P : A -> Type) (Px : P x) (y : A) (w : y= x) :
-      reflh (@eq_rect_r A x P Px y w) ≅ reflh Px.
-  now destruct w.
-Qed.
-(* Examples/Poplmark.v *)
-(* Notation "Gamma `_ x" := (dget Gamma x). *)
-(* Notation "Gamma ``_ x" := (get Gamma x) (at level 3, x at level 2, *)
-(*   left associativity, format "Gamma ``_ x"). *)
-
-Reserved Notation "sigma ∘ tau"  (at level 56, left associativity).
-
-Reserved Notation "s .[ sigma ]T" (at level 2, sigma at level 200, left associativity,
-   format "s .[ sigma ]T" ).
-Reserved Notation "s .[ sigma ]oT" (at level 2, sigma at level 200, left associativity,
-   format "s .[ sigma ]oT" ).
-
-Reserved Notation "s .[ sigma ]wT" (at level 2, sigma at level 200, left associativity,
-   format "s .[ sigma ]wT" ).
-
-Reserved Notation "s .[ sigma ]t" (at level 2, sigma at level 200, left associativity,
-   format "s .[ sigma ]t" ).
-
-Reserved Notation "s .[ sigma ]V" (at level 2, sigma at level 200, left associativity,
-   format "s .[ sigma ]V" ).
-
-
-
-Inductive Tm : Type :=
-  | va (x:Var)
-          (* Coh Γ A σ  *)
-  | coh : Con -> Ty -> sub -> Tm
-with Ty : Type :=
-  | star
-  | ar : Ty -> Tm -> Tm -> Ty
-with  Con : Type :=
-      | astar
-          (* Γ A, u tq Γ ⊢ u : A *)
-      | ext : Con -> Ty -> Tm -> Con
-with sub : Type :=
-       | to_star : Tm -> sub
-       | to_ext : sub -> Tm -> Tm -> sub
-with Var : Type :=
-  | vstar
-  (* toutes ces variables sont dans des contextes étendues *)
-  | vwk (v : Var)
-  | v0 
-  | v1 .
-
-
-
-Fixpoint sub_Var (σ : sub) (x : Var) : Tm :=
-   match σ,x with
-     to_star t, vstar => t
-   | to_ext σ a f, vwk x => x .[ σ ]V
-   | to_ext σ a f, v0 => f
-   | to_ext σ a f, v1 => a
-   | _,_ => va vstar (* dummy *)
-   end
-where "s .[ sigma ]V" := (sub_Var sigma s) : subst_scope.
-
-
-Fixpoint sub_Tm (σ : sub) (t : Tm) : Tm :=
-  match t with
-  | va x => x .[ σ ]V
-          (* Coh Γ A σ  *)
-  | coh Γ A δ => coh Γ A (δ ∘ σ)
-  end
-    (*
-Γ ⊢ σ : Δ
-E ⊢ δ : Γ
-E ⊢ σ ∘ δ : Δ
-     *)
-with compS (σ : sub) (δ : sub) : sub :=
-       match σ with
-         | to_star t => to_star (t .[ δ ]t)
-         (* Γ ⊢ σ' : Δ' *)
-         (* E ⊢ σ ∘ δ : Δ *)
-         (* E ⊢ (σ ∘ δ)' : Δ' *)
-         | to_ext σ a f => to_ext (σ ∘ δ) (a .[ δ ]t) (f .[ δ ]t)
-       end
-where "s .[ sigma ]t" := (sub_Tm sigma s) : subst_scope
-  and "sigma ∘ delta" := (compS sigma delta) :subst_scope.
-
-
-(* Γ ⊢ idS : Γ *)
-Fixpoint idS (Γ : Con) : sub :=
-  match Γ with
-    astar => to_star (va vstar)
-  | ext Γ A u => to_ext (idS Γ) (va v1) (va v0)
-  end.
-
-
-Fixpoint wkt (t : Tm) : Tm :=
-  match t with
-    va x => va (vwk x)
-  | coh Γ A σ => coh Γ A (wkS σ)
-  end
-with wkS (σ : sub) : sub :=
-  match σ with
-  | to_star t => to_star (wkt t)
-  | to_ext σ a f => to_ext (wkS σ) (wkt a) (wkt f)
-  end.
-
-Fixpoint wkT (A : Ty) : Ty :=
-  match A with
-    star => star
-  | ar A t u => ar (wkT A) (wkt t) (wkt u)
-  end.
-
-
-Open Scope subst_scope.
-
-
-Fixpoint sub_Ty (σ : sub) (A : Ty) : Ty :=
-  match A with
-    star => star
-  | ar A t u => ar (A .[ σ ]T) (t .[ σ ]t) (u .[ σ ]t)
-  end
-    where "s .[ sigma ]T" := (sub_Ty sigma s) : subst_scope.
-
-
-Definition sub_oTy (σ : sub) (A : option Ty) : option Ty :=
-  if A is Some A then Some (A .[ σ ]T) else None.
-
-Notation "s .[ σ ]oT" := (sub_oTy σ s) : subst_scope.
-
-  
-
-    
-(* Compute ((coh astar star (to_star (ids 0))).[ ren(+1) ]t). *)
-
-(* Fixpoint wV (Γ : Con) (B : Ty) (x : Var) := *)
-(*   match Γ,x with *)
-(*   | astar, vstar => B == star *)
-(*   | ext Γ A u,vwk x => wV Γ *)
-(*   | ext Γ A u,v0  => ar (A .[ wkS Γ A u ]T) v1 u *)
-(*   | ext Γ A u,v1  => ar A v1 u *)
-(*                        | *)
-(*                   | 1 => A *)
-(*                   | x.+2 => lookup Γ 1 *)
-(*                   end *)
-(*   end. *)
-
-
-(*
-Fixpoint lookup (Γ : Con) (x : Var) : option Ty :=
-  match Γ,x with
-  | astar, vstar => Some (star)
-  | ext Γ A u,vwk x => (lookup Γ x) .[ wkS Γ A u ]oT
-  | ext Γ A u,v0  => Some (ar (A .[ wkS Γ A u ]T) (va v1) (u .[ wkS Γ A u]t ))
-  | ext Γ A u,v1  => Some (A .[ wkS Γ A u ]T)
-  | _, _ => None
-  end.
-*)
-
-
-
-(*
-Fixpoint s_nth (σ : sub) (x : var) :=
-  match σ with
-  | to_star t => match x with
-             | 0 => t
-             | _.+1 => none
-             end
-  | to_ext σ a f => match x with
-                  | 0 => f
-                  | 1 => a
-                  | x.+2 => s_nth σ x
-                  end
-  end.
-*)
-
-Fixpoint beq_var ( x y : Var) : bool :=
-  match x,y with
-    vstar,vstar => true
-  | vwk v, vwk v' => beq_var v v'
-  | v0,v0 => true
-  | v1, v1 => true
-  | _,_ => false
-  end.
-  
-Fixpoint beq_tm (x y : Tm) : bool :=
-        (match x,y with
-       | va x, va x' => beq_var x x'
-       | coh Γ A σ, coh Γ' A' σ' => [ && beq_Con Γ Γ' , beq_Ty A A' & beq_sub σ σ' ]
-       | _,_ => false
-         end)
-with beq_Ty (x y : Ty) :=
-       (
-       match x,y with
-       | star, star => true
-       | ar A t u, ar A' t' u' =>
-         [ && beq_Ty A A' , beq_tm t t' & beq_tm u u' ]
-       (* | none,none => true *)
-       | _,_ => false
-
-       end)
-with beq_Con (x y : Con) :   bool :=
-      (match x , y with
-  | astar, astar => true
-  | ext Γ A u, ext Γ' A' u' => [ && beq_Con Γ Γ' , beq_Ty A A' & beq_tm u u' ]
-  | _,_ => false
-     end)
-with beq_sub (x y : sub) :   bool :=
-  (match x , y with
-      | to_star t, to_star t' => beq_tm t t'
-      | to_ext σ a f, to_ext σ' a' f' => [ && beq_sub σ σ' , beq_tm a a' & beq_tm f f']
-        | _,_ => false
-        end).
-
-(*
-Definition Var_eqP : Equality.axiom beq_var.
-Admitted.
-Definition tm_eqP : Equality.axiom beq_tm.
-Admitted.
-Definition Ty_eqP : Equality.axiom beq_Ty.
-Admitted.
-Definition sub_eqP : Equality.axiom beq_sub.
-Admitted.
-Definition Con_eqP : Equality.axiom beq_Con.
-Admitted.
-
-Canonical var_eqMixin := EqMixin Var_eqP.
-Canonical var_eqType := Eval hnf in EqType Var var_eqMixin.
-
-Canonical tm_eqMixin := EqMixin tm_eqP.
-Canonical tm_eqType := Eval hnf in EqType Tm tm_eqMixin.
-
-Canonical Ty_eqMixin := EqMixin Ty_eqP.
-Canonical Ty_eqType := Eval hnf in EqType Ty Ty_eqMixin.
-
-Canonical sub_eqMixin := EqMixin sub_eqP.
-Canonical sub_eqType := Eval hnf in EqType sub sub_eqMixin.
-
-Canonical Con_eqMixin := EqMixin Con_eqP.
-Canonical Con_eqType := Eval hnf in EqType Con Con_eqMixin.
-
-*)
-
-
-
-
-(* La version inductive *)
-Inductive WVar : Con -> Ty -> Var -> Type :=
-  w_vstar : WVar astar star vstar
-| w_vwk Γ A u B x : WVar Γ B x ->
-                 (* Je dois aussi mettre les hypothèses suivantes *)
-                    Wtm Γ A u ->
-                    WVar (ext Γ A u) (wkT B) (vwk x)
-| w_v1 Γ A u : Wtm Γ A u -> WVar (ext Γ A u) (wkT A) v1
-| w_v0 Γ A u : Wtm Γ A u -> WVar (ext Γ A u) (ar (wkT A) (va v1) (wkt u)) v0
-
-with WC : Con -> Type :=
-  w_astar : WC astar
-| w_ext Γ A u : WC Γ -> WTy Γ A ->  Wtm Γ A u -> WC (ext Γ A u)
-with WTy : Con -> Ty -> Type :=
-       | w_star Γ : WC Γ -> WTy Γ star
-       | w_ar Γ A t u : WTy Γ A -> Wtm Γ A t -> Wtm Γ A u -> WTy Γ (ar A t u)
-with Wtm : Con -> Ty -> Tm -> Type :=
-       | w_va Γ A x : WVar Γ A x -> Wtm Γ A (va x)
-       | w_coh Γ Δ A σ : WC Δ -> WTy Δ A -> WS Γ Δ σ ->  
-                         (* en principe inutile, mais je le rajoute pour avoir la bonne hypothèse
-                           de récurrence *)
-                         (* WTy Γ A.[σ]T  -> *)
-                         Wtm Γ A.[σ]T (coh Δ A σ) 
-with WS : Con -> Con -> sub -> Type :=
-     | w_to_star Γ t : Wtm Γ star t -> WS Γ astar (to_star t)
-     | w_to_ext Γ A u Δ σ t f : WS Γ Δ σ ->
-                                WTy Δ A ->
-                                Wtm Δ A u ->
-                                Wtm Γ A.[σ]T t ->
-                                Wtm Γ (ar (A.[ σ ]T) t (u.[σ]t)) f ->
-                                WS Γ (ext Δ A u) (to_ext σ t f).
-
-
-Reserved Notation "Gamma ⊢ A : B"
-  (at level 68, A at level 99, no associativity,
-   format "Gamma  ⊢  A  :  B").
-Reserved Notation "Gamma ⊢ A"
-  (at level 68, A at level 99, no associativity,
-   format "Gamma  ⊢  A").
-
-Reserved Notation "Gamma ⊢ A ⇒ B"
-  (at level 68, A at level 99, no associativity,
-   format "Gamma  ⊢  A  ⇒  B").
-
-Notation "Gamma ⊢ A" := (WTy Gamma A)  : wf_scope.
-Notation "Gamma ⊢ s : A" := (Wtm Gamma A s) : wf_scope.
-Notation "Gamma ⊢  s  ⇒ Delta" :=
-  (WS Gamma Delta s)
-    : wf_scope.
-
-Open Scope wf_scope.
-
-Fixpoint wkTm_inj (a b: Tm) (e : wkt a = wkt b) {struct a}: a = b
-with wkS_inj (x y : sub)(e : wkS x = wkS y) {struct x} : x = y.
-  - destruct a,b => //=.
-    +  by case:e => ->.
-    + case:e .
-      move => ?? /wkS_inj .
-      intros; subst.
-      f_equal.
-  - destruct x,y => //=.
-    + case:e.
-      by move/wkTm_inj => ->.
-    + case:e.
-      by move => /wkS_inj -> /wkTm_inj -> /wkTm_inj -> .
-Qed.
-
-Fixpoint wkTy_inj  (a b: Ty) (e : wkT a = wkT b) {struct a}: a = b.
-  destruct a,b => //=.
-  - case:e .
-    move =>/wkTy_inj ->.
-    move/wkTm_inj => ->.
-    move/ wkTm_inj ->.
-    reflexivity.
-Qed.
-Definition is_center (A : Type) (a : A) :=
-  forall ( a' : A),  a' = a.
-Fixpoint WC_hp Γ (wΓ : WC Γ) : is_center wΓ
-with WTy_hp Γ A (wA : Γ ⊢ A) : is_center wA
-with WTm_hp Γ A t (wt : Γ ⊢ t : A) : is_center wt
-with WVar_hp Γ A x (wx : WVar Γ A x) : is_center wx
-with WS_hp Γ Δ σ (wσ : (Γ ⊢ σ ⇒  Δ)) : is_center wσ.
--  destruct wΓ.
-   + move => w.
-     apply:JMeq_eq.
-     set (C := astar) in w.
-     (* need to do that otherwise it odes not genralize proper;ly
-before : 
-  @JMeq (WC astar) w (WC astar) w_astar
-after :
-@JMeq (WC C) w (WC astar) w_astar
-*)
-     change (w ≅ w_astar).
-     have  : C = astar by reflexivity.
-     case:w => //=.
-   + move => wΓe.
-     set (C := ext _ _ _) in wΓe.
-     apply:JMeq_eq.
-     change (  wΓe ≅ w_ext wΓ w w0).
-     have  : C = ext Γ A u by reflexivity.
-     case : wΓe => //=.
-     move => ?????? [? ? ?].
-     subst.
-     apply:JMeq_from_eq.
-     f_equal.
-     * apply:WC_hp.
-     * apply:WTy_hp.
-     * apply:WTm_hp.
-- destruct wA.
-  + move => wst.
-    set (Ct := Γ) in wst.
-    set (C := star) in wst.
-    apply:JMeq_eq.
-    change (  wst ≅ w_star w).
-    have  : C = star  by reflexivity.
-    have  : Ct = Γ  by reflexivity.
-    case : wst => //=.
-    intros; subst.
-    apply:JMeq_from_eq.
-    f_equal.
-    apply:WC_hp.
-  +  move => wAr.
-     set (Ct := Γ) in wAr.
-     set (C := ar A t u) in wAr.
-    apply:JMeq_eq.
-    change (  wAr ≅ w_ar wA w w0).
-    have  : C = ar A t u  by reflexivity.
-    have  : Ct = Γ  by reflexivity.
-    case : wAr => //=.
-    intros; subst.
-    case:x0; intros; subst.
-    apply:JMeq_from_eq.
-    f_equal.
-    * apply:WTy_hp.
-    * apply:WTm_hp.
-    * apply:WTm_hp.
-- destruct wt.
-  + move => wt'.
-     set (CC := Γ) in wt'.
-     set (CT := A) in wt'.
-     set (Ct := va x) in wt'.
-     apply:JMeq_eq.
-     change   (wt' ≅ w_va w).
-     move:(erefl CC) (erefl CT) (erefl Ct).
-     rewrite {2}/CC {2}/CT {2}/Ct.
-     case:wt' => //=.
-     intros ; subst.
-     case:H1; intros; subst.
-     apply:JMeq_from_eq.
-     f_equal.
-     by apply:WVar_hp.
-  + move => wt'.
-     set (CC := Γ) in wt'.
-     set (CT := A.[σ]T) in wt'.
-     set (Ct := coh Δ A σ) in wt'.
-     apply:JMeq_eq.
-     change   (wt' ≅ w_coh w w0 w1).
-     move:(erefl CC) (erefl CT) (erefl Ct).
-     rewrite {2}/CC {2}/CT {2}/Ct.
-     case:wt' => //=.
-     intros ; subst.
-     case:H1 => ???; subst.
-     apply:JMeq_from_eq.
-     f_equal.
-     * apply:WC_hp.
-     * apply:WTy_hp.
-     * apply:WS_hp.
-- destruct wx.
-  + move => wx'.
-    (* cette technique marche super bien !! *)
-    refine (match wx' with w_vstar => _ | _ => _ end).
-    all:easy.
-  + move => wx'.
-    apply:JMeq_eq.
-    match goal with [ H : WVar ?C ?B ?X |- ?a ≅ ?b] =>
-                      set (CC := C) in H;
-                      set (CT := B) in H;
-                      set (Ct := X) in H;
-                      change (a ≅ b)
-    end.
-    move:(erefl CC) (erefl CT) (erefl Ct).
-    rewrite {2}/CC {2}/CT {2}/Ct.
-    case:wx' => //=.
-    intros; subst.
-    case:H ; intros ;subst.
-    case:H1 ; intros ;subst.
-    apply wkTy_inj in H0.
-    subst.
-    apply:JMeq_from_eq.
-    f_equal.
-    * apply:WVar_hp.
-    * apply:WTm_hp.
-  + move => wx'.
-    apply:JMeq_eq.
-    match goal with [ H : WVar ?C ?B ?X |- ?a ≅ ?b] =>
-                      set (CC := C) in H;
-                      set (CT := B) in H;
-                      set (Ct := X) in H;
-                      change (a ≅ b)
-    end.
-    move:(erefl CC) (erefl CT) (erefl Ct).
-    rewrite {2}/CC {2}/CT {2}/Ct.
-    case:wx' => //=.
-    intros; subst.
-    case:H ; intros ;subst.
-    apply:JMeq_from_eq.
-    f_equal.
-    * apply:WTm_hp.
-  + move => wx'.
-    apply:JMeq_eq.
-    match goal with [ H : WVar ?C ?B ?X |- ?a ≅ ?b] =>
-                      set (CC := C) in H;
-                      set (CT := B) in H;
-                      set (Ct := X) in H;
-                      change (a ≅ b)
-    end.
-    move:(erefl CC) (erefl CT) (erefl Ct).
-    rewrite {2}/CC {2}/CT {2}/Ct.
-    case:wx' => //=.
-    intros; subst.
-    case:H ; intros ;subst.
-    apply:JMeq_from_eq.
-    f_equal.
-    * apply:WTm_hp.
-- destruct wσ.
-  + move => wσ'.
-    apply:JMeq_eq.
-    match goal with [ H : ?C ⊢ ?B ⇒ ?C2 |- ?a ≅ ?b] =>
-                      set (CC := C) in H;
-                      set (CS := B) in H;
-                      set (CC2 := C2) in H;
-                      change (a ≅ b)
-    end.
-    move:(erefl CC) (erefl CS) (erefl CC2).
-    rewrite {2}/CC {2}/CS {2}/CC2.
-    case:wσ' => //=.
-    intros; subst.
-    case:H0 ; intros ;subst.
-    apply:JMeq_from_eq.
-    f_equal.
-    * apply:WTm_hp.
-  + move => wσ'.
-    apply:JMeq_eq.
-    match goal with [ H : ?C ⊢ ?B ⇒ ?C2 |- ?a ≅ ?b] =>
-                      set (CC := C) in H;
-                      set (CS := B) in H;
-                      set (CC2 := C2) in H;
-                      change (a ≅ b)
-    end.
-    move:(erefl CC) (erefl CS) (erefl CC2).
-    rewrite {2}/CC {2}/CS {2}/CC2.
-    case:wσ' => //=.
-    intros; subst.
-    case:H0 ; intros ;subst.
-    case:H1 ; intros ;subst.
-    apply:JMeq_from_eq.
-    f_equal; (apply WTm_hp || apply:WTy_hp || apply:WS_hp).
-Qed.
 (* sinon je ne peux plus faire de ltac
 *)
 Ltac clear_hprop :=
@@ -651,286 +45,6 @@ Ltac clear_hprop :=
   | x : WS ?C ?A ?t, x' : WS ?C ?A ?t |- _ =>
     destruct (WS_hp x x')
   end.
-(* TODO définir sbVcomp avant et sbTcomp après *)
-Fixpoint sbTcomp  (σ δ : sub) C C' Γ 
-         (wδ : C ⊢ δ ⇒ C')
-               (wσ : C' ⊢ σ ⇒ Γ)
-               (A :Ty)
-         (wA : Γ ⊢ A)
-  :
-  A.[σ]T.[δ]T = A.[σ ∘ δ]T
-with sbTmcomp  (σ δ : sub) C C' Γ
-               (wδ : C ⊢ δ ⇒ C')
-               (wσ : C' ⊢ σ ⇒ Γ)
-               A (t :Tm)
-               (wt : Γ ⊢ t : A)
-     :
-       t.[σ]t.[δ]t = t.[σ ∘ δ]t
-with sbVcomp  (σ δ : sub) C C' Γ 
-               (wδ : C ⊢ δ ⇒ C')
-               (wσ : C' ⊢ σ ⇒ Γ)
-               A (x :Var)
-              (wx : WVar Γ A x)
-     : x.[σ]V.[δ]t = x.[σ ∘ δ]V
-with sbScomp  (σ δ : sub) C C' Γ
-               (wδ : C ⊢ δ ⇒ C')
-               (wσ : C' ⊢ σ ⇒ Γ)
-              Δ (s :sub)
-               (ws : Γ ⊢ s ⇒ Δ )
-     : (s ∘ σ) ∘ δ = s ∘ (σ ∘ δ).
-- destruct wA.
-  + reflexivity.
-  + cbn.
-    move/sbTcomp:wA => /(_ _ _ _ _ wδ wσ) ->.
-    move/sbTmcomp:w => /(_ _ _ _ _ wδ wσ ) ->.
-    move/sbTmcomp:w0 => /(_ _ _ _ _ wδ wσ ) ->.
-    reflexivity.
-- destruct wt.
-  + apply:sbVcomp; last by apply:w.
-    eassumption.
-    eassumption.
-  + simpl.
-    erewrite sbScomp => //; eassumption.
-- destruct wx.
-  + inversion wσ.
-    reflexivity.
-  + inversion wσ; subst.
-    move/sbVcomp:wx => /(_ _ _ _ _ wδ).
-    now apply.
-  + inversion wσ.
-    reflexivity.
-  + inversion wσ.
-    reflexivity.
-- destruct ws.
-  + simpl.
-    move/sbTmcomp:w => /(_ _ _ _ _ wδ wσ ) ->.
-    reflexivity.
-  + simpl.
-    f_equal.
-    * apply:sbScomp; eassumption.
-    * apply:sbTmcomp; eassumption.
-    * apply:sbTmcomp; eassumption.
-Qed.
-
-Lemma wkt_ext  σ t f u : (wkt u).[to_ext σ t f]t = u.[σ]t
-with wkS_ext  σ t f δ : (wkS δ) ∘ (to_ext σ t f) = δ∘σ.
-  - destruct u.
-    + reflexivity.
-    + simpl.
-      rewrite wkS_ext.
-      reflexivity.
-  - destruct δ.
-    + simpl.
-      rewrite wkt_ext.
-      reflexivity.
-    + simpl.
-      f_equal.
-      * apply: wkS_ext.
-      * apply: wkt_ext.
-      * apply: wkt_ext.
-Qed.
-
-
-Lemma wkT_ext σ t f B : (wkT B).[to_ext σ t f]T = B.[σ]T.
-  induction B => //=.
-  now rewrite IHB !wkt_ext .
-Qed.
-  
-  
-  
-
-  Fixpoint wkV_wkS Γ Δ σ  B (x : Var)
-        (wσ : Γ ⊢ σ ⇒ Δ)
-        (wx : WVar Δ B x)  : wkt (x .[σ]V) = x.[wkS σ]V.
-  destruct wx.
-  + inversion wσ; subst.
-    reflexivity.
-  + inversion wσ; subst.
-    simpl.
-    apply:wkV_wkS; eassumption.
-  + by inversion wσ; subst.
-  + by inversion wσ; subst.
-  Qed.
-
-  Fixpoint wkt_wkS Γ Δ σ  B (t : Tm)
-        (wσ : Γ ⊢ σ ⇒ Δ)
-        (wt : Δ ⊢ t : B)  : wkt (t .[σ]t) = t.[wkS σ]t
-    with wkS_wkS Γ Δ σ E δ 
-        (wσ : Γ ⊢ σ ⇒ Δ)
-        (wδ : Δ ⊢ δ ⇒ E)
-        : (wkS (δ ∘ σ)) = δ ∘ (wkS σ).
-  - destruct wt.
-    + apply:wkV_wkS; eassumption.
-    + simpl.
-      erewrite wkS_wkS ; reflexivity ||  eassumption.
-  - destruct wδ.
-    + simpl.
-      erewrite wkt_wkS ; reflexivity ||  eassumption.
-    + simpl.
-      erewrite wkS_wkS.
-      erewrite wkt_wkS.
-      erewrite wkt_wkS.
-      reflexivity.
-      all:eassumption.
-  Qed.
-  Fixpoint wkT_wkS Γ Δ σ  B 
-        (wσ : Γ ⊢ σ ⇒ Δ)
-        (wB : Δ ⊢ B)  : wkT (B .[σ]T) = B.[wkS σ]T.
-    destruct wB.
-    - reflexivity.
-    - simpl.
-      erewrite wkT_wkS.
-      erewrite wkt_wkS.
-      erewrite wkt_wkS.
-      reflexivity.
-      all:eassumption.
-  Qed.
-    
-Lemma WVar_wk
-      (Γ  : Con)(A: Ty) (u : Tm)
-      (wu : Γ ⊢ u : A)
-      (B : Ty)(x : Var) (wx : WVar Γ B x) :
-  WVar (ext Γ A u) (wkT B) (vwk x).
-
-  move:A u wu.
-  induction wx.
-  + move => A u wu.
-    apply:w_vwk.
-    repeat constructor.
-    assumption.
-  + move => A' u' wu'.
-    apply:w_vwk => //.
-    by apply:IHwx.
-  + move => A' u' wu'.
-    apply:w_vwk => //.
-    by constructor.
-  + move => A' u' wu'.
-    apply:w_vwk => //.
-    by constructor.
-Qed.
-Lemma WTm_wk
-      (Γ  : Con)(A: Ty) (u : Tm)
-      (wu : Γ ⊢ u : A)
-      (B : Ty)(t : Tm) (wt : Γ ⊢ t : B) :
-   (ext Γ A u) ⊢ wkt t : (wkT B)
-  with WS_wk
-         (Γ  : Con)(A: Ty) (u : Tm)
-         (wu : Γ ⊢ u : A)
-         Δ σ (wσ : Γ ⊢ σ ⇒ Δ) : ext Γ A u ⊢ wkS σ ⇒ Δ.
-
-  - move:A u wu.
-  induction wt.
-  + move => A' u' wu'.
-    constructor.
-    now apply:WVar_wk.
-  + move => A' u' wu'.
-    simpl.
-    erewrite wkT_wkS; try eassumption.
-    constructor => //=.
-    by apply:WS_wk.
-  - destruct wσ.
-    + simpl.
-      constructor.
-      change star with (wkT star).
-      by apply:WTm_wk.
-    + simpl.
-      constructor; try assumption.
-      * by apply:WS_wk.
-      * erewrite <- wkT_wkS; try eassumption.
-          by apply:WTm_wk.
-      * erewrite <- wkT_wkS; try eassumption.
-        erewrite <- wkt_wkS; try eassumption.
-        move/WTm_wk:(wu) => I.
-        by move/I:w2.
-Qed.
-
-Fixpoint WTy_wk
-      (Γ  : Con)(A: Ty) (u : Tm)
-      (wu : Γ ⊢ u : A)
-      (wA : Γ ⊢ A)
-      (B : Ty) (wB : Γ ⊢ B) :
-   (ext Γ A u) ⊢  (wkT B).
-  destruct wB.
-  - constructor.
-    constructor => //.
-  - simpl.
-    constructor.
-    + apply:WTy_wk => //.
-    + apply:WTm_wk => //.
-    + apply:WTm_wk => //.
-Qed.
-    
-(* with WS_wk *)
-Lemma WVar_sb
-         (Γ Δ : Con)(σ : sub)(A : Ty)(x : Var) 
-         (wΓ : WC Γ) (wΔ : WC Δ)
-         (wσ : Γ ⊢ σ ⇒ Δ) (wx : WVar Δ A x) :  Γ ⊢ (x.[σ]V) : (A.[σ]T)   .
-  move : wx σ    wσ  wΓ wΔ.
-  induction 1.
-  + now inversion 1.
-  + inversion 1.
-    subst.
-    rewrite wkT_ext.
-    simpl.
-    intros.
-    apply:IHwx => //.
-    now inversion wΔ.
-  + inversion 1; subst=> //.
-    now rewrite wkT_ext.
-  + inversion 1; subst=> //.
-    simpl.
-    now rewrite wkT_ext wkt_ext.
-Defined.
-Lemma
-  Wtm_sb
-         (Γ Δ : Con)(σ : sub)(A : Ty)(t : Tm) 
-         (wΓ : WC Γ) (wΔ : WC Δ)
-         (wσ : Γ ⊢ σ ⇒ Δ) (wt : Δ ⊢ t : A) : Γ ⊢ t.[σ]t : A.[σ]T
-with WS_sb
-         (Γ Δ : Con)(σ : sub)(E : Con)(δ : sub) 
-         (wΓ : WC Γ) (wΔ : WC Δ)
-         (wσ : Γ ⊢ σ ⇒ Δ) (wδ : Δ ⊢ δ ⇒ E) : Γ ⊢ δ ∘ σ ⇒ E.
-- destruct wt.
-  + move/WVar_sb:w.
-    apply => //.
-  + simpl.
-    erewrite sbTcomp; try eassumption.
-    {
-    constructor ; try eassumption.
-    apply:WS_sb; last first; eassumption.
-    }
-- destruct wδ.
-  + simpl.
-    constructor.
-    apply:(Wtm_sb _ _ σ star); last first; eassumption.
-  + simpl.
-    constructor.
-    * apply:WS_sb; last first; eassumption.
-    * assumption.
-    * assumption.
-    * erewrite <- sbTcomp; try eassumption.
-      {
-         apply:Wtm_sb; last first; eassumption.
-      }
-    * erewrite <- sbTcomp; try eassumption.
-      erewrite <- sbTmcomp; try eassumption.
-      move/Wtm_sb:w2.
-      apply ; assumption.
-Defined.
-
-Lemma WTy_sb
-         (Γ Δ : Con)(σ : sub)(A : Ty)
-         (wΓ : WC Γ) (wΔ : WC Δ)
-         (wσ : Γ ⊢ σ ⇒ Δ) (wA : Δ ⊢ A): Γ ⊢ A.[σ]T.
- induction wA.
-  + constructor => //.
-  + cbn.
-    constructor.
-    * apply:IHwA => //. 
-    * apply:Wtm_sb => //;[| eassumption |] => // .
-    * apply:Wtm_sb => //;[| eassumption |] => // .
-Defined.
-
 
 (* Définir ce qu'est un type globulaire qui est un omega groupoide *)
 (*
@@ -972,27 +86,32 @@ Record rC :=
 Lemma rCeq (x y : rC)
       (e : C_TY x = C_TY y)
       (ef : C_fib x ≅ C_fib y )
-      (eidA : forall(a:T), (idA x a ≅ idA y a))
-      (eJA : forall P P' fibP fibP' d d' δ δ',
-          P ≅ P' -> fibP ≅ fibP' -> d ≅ d' -> δ ≅ δ' ->
-          @JA x P fibP d δ ≅ @JA y P' fibP' d' δ') : x = y.
+      (* (eidA : forall(a:T), (idA x a ≅ idA y a)) *)
+      (eidA :  (idA x  ≅ idA y ))
+      (eJA : @JA x ≅ @JA y )
+      (* (eJA : forall P P' fibP fibP' d d' δ δ', *)
+      (*     P ≅ P' -> fibP ≅ fibP' -> d ≅ d' -> δ ≅ δ' -> *)
+      (*     @JA x P fibP d δ ≅ @JA y P' fibP' d' δ') *)
+  : x = y.
   destruct x,y; simpl in *.
   destruct e.
   have e: idA0 = idA1.
   {
-    apply:funext => a.
+    (* apply:funext => a. *)
     apply JMeq_eq.
     apply:eidA.
   }
   subst.
+  clear e.
   have e: JA0 = JA1.
   {
-    repeat (apply:funext ; intros).
+    (* repeat (apply:funext ; intros). *)
     intros.
     apply JMeq_eq.
     now apply:eJA.
   }
   subst.
+  clear e.
   have e: JA_idA0 = JA_idA1.
   {
     repeat (apply:funext ; intros).
@@ -1013,8 +132,14 @@ Lemma rTeq (C C' : rC) (x : rT C) (y : rT C') :
   C = C' ->
   (forall γ γ', γ ≅ γ' -> T_TY x γ ≅ T_TY y γ') ->
     (forall a, iA x a ≅ iA y a)  ->
-    (forall γ γ', γ ≅ γ' -> T_fib x γ ≅ T_fib y γ') 
+    (forall γ γ', γ ≅ γ' -> T_fib x γ ≅ T_fib y γ')
   -> x ≅ y.
+(* Lemma rTeq (C C' : rC) (x : rT C) (y : rT C') : *)
+(*   C = C' -> *)
+(*   ( T_TY x  ≅ T_TY y ) -> *)
+(*     ( iA x  ≅ iA y )  -> *)
+(*     ( T_fib x  ≅ T_fib y )  *)
+(*   -> x ≅ y. *)
   intros.
   subst.
   destruct x,y; simpl in *.
@@ -1025,6 +150,7 @@ Lemma rTeq (C C' : rC) (x : rT C) (y : rT C') :
     auto.
   }
   subst.
+  (* clear e. *)
   have e : iA0 = iA1.
   {
     repeat (apply:funext ; intros).
@@ -1032,6 +158,7 @@ Lemma rTeq (C C' : rC) (x : rT C) (y : rT C') :
     auto.
   }
   subst.
+  (* clear e. *)
   have e : T_fib0 = T_fib1.
   {
     repeat (apply:funext ; intros).
@@ -1818,7 +945,9 @@ Lemma
 Proof.
   apply:JMeq_eq.
   apply : rTeq => //=.
-  - by move => γ γ' /(@JMeq_eq _ _ _) -> //.
+  - cbn.
+    (* erewrite (uip _ erefl). *)
+      by move => γ γ' /(@JMeq_eq _ _ _) -> //.
   - move => a .
     apply:JMeq_trans;first by apply JMeq_eq_rect_r.
     apply:JMeq_sym.
@@ -2000,12 +1129,6 @@ Qed.
 
 
 
-Lemma JMeq_Σ (A : Type) (P : A -> Type) (x x': A) (y : P x) (y' : P x') :
-  x = x' -> y ≅ y' -> x ,Σ y = (x' ,Σ y').
-destruct 1.
-move/(@JMeq_eq _ _ _).
-now destruct 1.
-Qed.
 
 Lemma JMeq_t_t Γ (A A' : rT Γ) (t : rtm A) (t' : rtm A') γ  :
   A = A' -> t ≅ t' ->  t_t t γ ≅ t_t t' γ.
@@ -2451,27 +1574,6 @@ Lemma r_wk_star sΓ (sA : rT sΓ) (su : rtm sA) :  r_wkT su r_rl_star = r_rl_sta
 Proof.
   reflexivity.
 Qed.
-(* Lemma r_wk_ar sΓ (sA sB : rT sΓ) (su : rtm sA) (sx sy : rtm sB) : *)
-(*   r_wkT su (r_rl_ar sx sy) = r_rl_ar (r_wkt su sy) (r_wkt su sy). *)
-(* Proof. *)
-(*     reflexivity. *)
-(*   {| pT_C := r_rl_ext su; pT_T := r_wkT su (r_rl_ar st su0) |} = *)
-(*   {| pT_C := r_rl_ext su; pT_T := r_rl_ar (r_wkt su st) (r_wkt su su0) |} *)
-
-(* Record rl_wkC_ind sΓ (sA : rT sΓ) (su : rtm sA) : Type := *)
-(*   { r_wk_star :   r_wkT su sA = r_rl_star }. *)
-
-
-(*
-Fixpoint rl_wkC  (Γ  : Con) (A : Ty) (u : Tm)
-         (wΓ : WC Γ) (wA : Γ ⊢ A)(wu : Γ ⊢ u : A)
-         sΓ (sA : rT sΓ) (su : rtm sA)
-         (rA : rl_T wΓ wA (mkpT sA))
-         (ru : rl_t wΓ wA wu (mkpt su)) 
-         (rΓ : rl_C wΓ sΓ) {struct rΓ} : rl_wkC_ind su
-
-with
-*)
 Fixpoint rl_wkT
          (Γ  : Con) (A : Ty) (u : Tm)
          (B : Ty)
@@ -2770,494 +1872,53 @@ by apply:(WTm_wk _ (B := star)).
 by apply:(WTm_wk _ (B := ar B.[σ]T a u0.[σ]t)).
 Qed.
 
-
-
-
-
-Record rfC (Γ : Con) (wΓ : WC Γ) :=
-  { fC_C : rC ;
-    fC_r : rl_C wΓ fC_C
-  }.
-
-Record rfT (Γ : Con) (A : Ty) (wΓ : WC Γ) (wA : (Γ ⊢ A)) :=
-  { fT_C : rC;
-    fT_T : rT fT_C;
-    fT_r : rl_T wΓ wA (mkpT fT_T)
-  }.
-
-Record rft (Γ : Con) (A : Ty) (t : Tm) (wΓ : WC Γ) (wA : (Γ ⊢ A)) (wt : Γ ⊢ t : A) :=
-  { ft_C : rC;
-    ft_T : rT ft_C;
-    ft_t : rtm ft_T;
-    ft_r :  rl_t wΓ wA wt (mkpt ft_t );
-    ft_rT :  rl_T wΓ wA (mkpT ft_T) 
-  }.
-Record rfV (Γ : Con) (A : Ty) (x : Var) (wΓ : WC Γ) (wA : (Γ ⊢ A)) (wx : WVar Γ A x) :=
-  { fV_C : rC;
-    fV_T : rT fV_C;
-    fV_t : rtm fV_T;
-    fV_r :  rl_V wΓ wA wx (mkpt fV_t );
-    fV_rT :  rl_T wΓ wA (mkpT fV_T) ;
-    fV_rC :  rl_C wΓ fV_C 
-  }.
-
-Record rfS (Γ Δ : Con) (σ : sub) (wΓ : WC Γ) (wΔ : WC Δ) (wσ : Γ ⊢ σ ⇒ Δ) :=
-  { fS_Γ : rC;
-    fS_Δ : rC;
-    fS_S : rS fS_Γ fS_Δ;
-    fS_r : rl_S wΓ wΔ wσ (mkpS fS_S)}.
-
-Fixpoint WVar_Ty Γ A x (wΓ : WC Γ) (wx : WVar Γ A x):  Γ ⊢ A
-with WTm_Ty Γ A t (wΓ:WC Γ)  (wt : Γ ⊢ t : A) : Γ ⊢ A.
--  destruct wx.
-  + repeat constructor.
-  + apply:WTy_wk => //.
-    * apply:WTm_Ty.
-      -- now inversion wΓ.
-      -- eassumption.
-    * apply:WVar_Ty.
-      -- now inversion wΓ.
-      -- eassumption.
-  + have wA : Γ ⊢ A.
-    {
-     apply:WTm_Ty.
-      -- now inversion wΓ.
-      -- eassumption.
-    }
-
-    apply:WTy_wk => //.
-  + have wA : Γ ⊢ A.
-    {
-     apply:WTm_Ty.
-      -- now inversion wΓ.
-      -- eassumption.
-    }
-
-    constructor.
-    * apply:WTy_wk => //.
-    * repeat constructor => //.
-    * apply:WTm_wk => //.
-- destruct wt.
-  + apply:WVar_Ty; eassumption.
-  + apply:WTy_sb; last first; eassumption.
+Lemma rl_V_T  (Γ : Con)  (A : _) (x : Var)
+              (wΓ : WC Γ)(wA : Γ ⊢ A) (wx : WVar Γ A x) 
+              px
+              (rlt : rl_V wΓ wA wx px)
+     : rl_T wΓ wA (mkpT (pt_T px)).
+  destruct rlt => /=.
+  - by repeat constructor.
+  - apply:rl_wkT;eassumption.
+  - apply:rl_wkT;eassumption.
+  - repeat constructor => //=.
+    + apply:rl_wkT; eassumption.
+    + apply:rl_wkt; eassumption.
 Qed.
 
-  Lemma eqf_CC_TC (Γ : Con) (A : Ty) (wΓ : WC Γ) (wA : Γ ⊢ A)
-        (fΓ : rfC wΓ) (fA : rfT wΓ wA) : fC_C fΓ = fT_C fA.
-  Proof.
-    apply:rl_hpC.
-    + apply:fC_r.
-    + apply:rl_T_Cη.
-      apply:fT_r.
-  Qed.
-  Lemma eqf_tC_TC (Γ : Con) (A : Ty) t (wΓ : WC Γ) (wA : Γ ⊢ A) (wt : Γ ⊢ t : A)
-         (fA : rfT wΓ wA)(ft : rft wΓ wA wt) : ft_C ft = fT_C fA .
-  Proof.
-    apply:rl_hpC.
-    + apply:rl_t_Cη. 
-      apply:ft_r.
-    + apply:rl_T_Cη.
-      apply:fT_r.
-  Qed.
-  
-  Lemma eqf_tC_tC (Γ : Con) (A : Ty) t u (wΓ : WC Γ) (wA : Γ ⊢ A) (wt : Γ ⊢ t : A)
-        (wu : Γ ⊢ u : A)
-         (ft : rft wΓ wA wt)(fu : rft wΓ wA wu) : ft_C ft = ft_C fu .
-  Proof.
-    apply:rl_hpC.
-    + apply:(rl_t_Cη).
-      apply:ft_r.
-    + apply:(rl_t_Cη).
-      apply:ft_r.
-  Qed.
-  Lemma eqf_tT_tT (Γ : Con) (A : Ty) t u (wΓ : WC Γ) (wA : Γ ⊢ A) (wt : Γ ⊢ t : A)
-        (wu : Γ ⊢ u : A)
-         (ft : rft wΓ wA wt)(fu : rft wΓ wA wu) : ft_T ft ≅ ft_T fu .
-  Proof.
-    apply:π_eq_pTη'.
-    apply:rl_hpT.
-    + apply:ft_rT.
-    + apply:ft_rT.
-  Qed.
-  Lemma eqf_tT_TT (Γ : Con) (A : Ty) t (wΓ : WC Γ) (wA : Γ ⊢ A) (wt : Γ ⊢ t : A)
-         (fA : rfT wΓ wA)(ft : rft wΓ wA wt) : ft_T ft ≅ fT_T fA .
-  Proof.
-    apply:π_eq_pTη'.
-    apply:rl_hpT.
-    + apply:ft_rT.
-    + apply:fT_r.
-  Qed.
-
-Fixpoint semC (Γ : Con) (wΓ : WC Γ) {struct wΓ} : rfC wΓ
-with semT (Γ : Con) (A : Ty) (wΓ : WC Γ) (wA : Γ ⊢ A) : rfT wΓ wA
-with semt  (Γ : Con)  (A : _) (t : Tm)
-             (wΓ : WC Γ)(wA : Γ ⊢ A) (wt : Γ ⊢ t : A) : rft wΓ wA wt
-with semV  (Γ : Con)  (A : _) (x : Var)
-           (wΓ : WC Γ)
-           (wA : Γ ⊢ A)
-           (wx : WVar Γ A x) : rfV wΓ wA wx
-with semS (Γ Δ : Con)  (σ : sub)
-            (wΓ : WC Γ)(wΔ : WC Δ) (wσ : Γ ⊢ σ ⇒ Δ) : rfS wΓ wΔ wσ .
-- destruct wΓ.
-  + unshelve econstructor.
-    * apply :r_rl_astar.
-    * constructor.
-  + specialize (semt _ _ _ wΓ w w0).
-    unshelve econstructor.
-    * apply:r_rl_ext.
-      apply:(ft_t semt).
-    * constructor => //.
-      -- apply:(rl_t_C (ft_r semt)).
-      -- apply:ft_rT.
-      -- apply:ft_r.
-- destruct wA.
-  + specialize (semC _ w).
-    clear_hprop.
-    unshelve econstructor.
-    * exact (fC_C semC).
-    * apply:r_rl_star.
-    * by move/rl_star:(fC_r semC).
-  + specialize (semT _ _ wΓ wA).
-    have st := (semt _ _ _ wΓ wA w).
-    have su := (semt _ _ _ wΓ wA w0).
-    unshelve econstructor.
-    * apply:ft_C.
-      exact:st.
-    * apply:r_rl_ar.
-      -- apply:ft_t.
-      -- move: (ft_t su).
-         apply:transport2.
-         ** apply:eqf_tC_tC.
-         ** apply:eqf_tT_tT.
-    * constructor.
-      -- apply:(rl_t_C (ft_r st)).
-      -- apply:ft_rT.
-      -- apply:ft_r.
-      -- cbn .
-         move:(ft_r su).
-         apply:transport.
-         ++ apply:pt_eq.
-            ** apply:eqf_tC_tC.
-            ** apply:eqf_tT_tT.
-            ** apply:JMeq_sym.
-               apply:JMeq_transport2.
-- destruct wt.
-  + specialize (semV _ _ _ wΓ wA w).
-    econstructor.
-    * constructor.
-      exact:(fV_r semV).
-    * apply:fV_rT.
-  + specialize (semS _ _ _ wΓ w w1).
-    move/semT:(w0).
-    move/(_ w) => IHA.
-    assert ( e : fT_C IHA = fS_Δ semS).
-    {
-      apply:rl_hpC.
-      - apply:(rl_T_C (fT_r IHA)).
-      - apply:(rl_S_C2 (fS_r semS)).
-    }
-    econstructor.
-    * constructor; revgoals.
-      -- apply:(fS_r semS).
-      -- 
-         assert (h' : rl_T w w0 (mkpT (eq_rect _ rT (fT_T IHA) _ e))).
-         { move: (fT_r IHA).
-           apply:transport.
-           move:(fT_T IHA).
-           pattern (fT_C IHA),e.
-           by apply:J.
-         }
-         exact:h'.
-      -- apply:(rl_S_C2 (fS_r semS)).
-      -- apply:(rl_S_C1 (fS_r semS)).
-    * move:(fT_r IHA).
-      move/rl_sbT => IHA'.
-      simpl in IHA'.
-      have ewA : wA = WTy_sb  wΓ w w1 w0 by apply:WTy_hp.
-      subst wA.
-      (* J'ai besoin du truc suivant :
-Si le but est :
-  f x y z
-alors on le remplace par f ?x' ?y' ?z'
-avec une preuve que x = x'
-puis en ayant détruit cette égalité, que y = y'
-*)
-      apply:tp_rT1; last first.
-      -- apply:IHA'.
-         apply:tp_rS1; last by exact:(fS_r semS).
-         apply: pS_eq1.
-         apply:eq_rect_inv.
-      -- f_equal.
-         abstract (destruct IHA,semS; simpl in *; now destruct e).
-      -- reflexivity.
-- destruct wx.
-  +
-    have e : wΓ = w_astar by   apply:WC_hp.
-    subst.
-    have e : wA = w_star w_astar by   apply:WTy_hp.
-    subst.
-    repeat econstructor.
-  + (* weakening *)
-    rename w into wu.
-    move/semt:(wu) => IHu.
-    move/semV:(wx) => IHx.
-    rename wA into wB.
-    assert ( wA : Γ ⊢ A).
-    { abstract (by inversion wΓ).  }
-    assert ( wΓ' :WC Γ).
-    { abstract (by inversion wΓ).  }
-    have e : wΓ = w_ext wΓ' wA wu by apply:WC_hp.
-    subst.
-    specialize (IHx wΓ' (WVar_Ty wΓ' wx)).
-    specialize (IHu wΓ' wA).
-    have rx := fV_r IHx.
-    have rA := fV_rT IHx.
-    have ru := ft_r IHu.
-    have eΓ : fV_C IHx = ft_C IHu.
-    {
-      apply:rl_hpC.
-      -  exact:(rl_V_C rx).
-      -  exact:(rl_t_C ru).
-    }
-    have rAu : rl_T wΓ' wA {| pT_C := fV_C IHx; pT_T := eq_rect_r rT (ft_T IHu) eΓ |}.
-    {
-      move:(ft_rT IHu).
-      apply:transport.
-      move:(ft_T IHu).
-      pattern (ft_C IHu),eΓ.
-        by apply:J_r.
-    }
-    have ru' :
-      rl_t wΓ' wA wu
-           {|
-             pt_C := fV_C IHx;
-             pt_T := eq_rect_r rT (ft_T IHu) eΓ;
-             pt_t := transport2 (Logic.eq_sym eΓ)
-                                (JMeq_sym (JMeq_eq_rect_r (ft_T IHu) eΓ)) (ft_t IHu) |}.
-    {
-      move:(ft_r IHu).
-      apply:transport.
-      move:(ft_t IHu).
-      move:(ft_T IHu).
-      pattern (ft_C IHu),eΓ.
-      apply:J_r.
-      cbn.
-      intros.
-      rewrite JMeq_eq_refl.
-      reflexivity.
-    }
+Lemma rl_V_Tη  (Γ : Con)  (A : _) (x : Var)
+              (wΓ : WC Γ)(wA : Γ ⊢ A) (wx : WVar Γ A x) 
+              (sΓ : rC)(sA : rT sΓ) (sx: rtm sA)
+              (px := mkpt sx)
+              (rlt : rl_V wΓ wA wx px)
+     : rl_T wΓ wA (mkpT sA).
+  change (mkpT sA) with (mkpT (pt_T px)).
+  apply:rl_V_T;eassumption.
+Qed.
 
 
-    (* destruct IHx,IHu; subst; simpl in *. *)
-    (* subst. *)
-    econstructor.
-    * apply:rl_vwk; last by apply:rx.
-      -- rewrite eΓ. exact:(rl_t_C ru).
-      -- exact:rAu.
-      -- move:ru.
-         apply:transport.
-         symmetry.
-         apply:pt_eq => //.
-         ++ apply:JMeq_eq_rect_r.
-         ++ apply:JMeq_transport2 => //.
-            apply:JMeq_sym.
-            apply:JMeq_eq_rect_r.
+Lemma rl_t_T  (Γ : Con)  (A : _) t
+              (wΓ : WC Γ)(wA : Γ ⊢ A) (wt : Γ ⊢ t : A)
+              pt 
+              (rlt : rl_t wΓ wA wt pt)
+     : rl_T wΓ wA (mkpT (pt_T pt)).
+  (* change (mkpT sA) with (mkpT (pt_T pt)). *)
+  destruct rlt => /=.
+  - apply: rl_V_Tη ; eassumption.
+  - apply:tp_rT1; last first.
+    + apply:rl_sbT; eassumption.
+    + reflexivity.
+    + reflexivity.
+Qed.
+Lemma rl_t_Tη  (Γ : Con)  (A : _) t
+              (wΓ : WC Γ)(wA : Γ ⊢ A) (wt : Γ ⊢ t : A)
+              (sΓ : rC)(sA : rT sΓ) (st: rtm sA)
+              (pt := mkpt st)
+              (rlt : rl_t wΓ wA wt pt)
+     : rl_T wΓ wA (mkpT sA).
+  change (mkpT sA) with (mkpT (pt_T pt)).
+  apply:rl_t_T; eassumption.
+Qed.
 
-      -- assumption.
-    * apply:rl_wkT => //.
-      ++ apply:fV_rT.
-    * constructor => //=.
-      ++ apply:rl_V_Cη.
-         exact:rx.
-  + rename w into wu.
-    assert ( wA' : Γ ⊢ A).
-    { abstract (by inversion wΓ).  }
-    assert ( wΓ' :WC Γ).
-    { abstract (by inversion wΓ).  }
-    move/semt:(wu).
-    move/(_ wΓ' wA') => IHu.
-    have e : wΓ = w_ext wΓ' wA' wu by apply:WC_hp.
-    subst.
-    have ru := ft_r IHu.
-    (* have r :  rl_C wΓ' (ft_C IHu) *)
-
-    econstructor.
-    * constructor; last by apply:ru.
-      -- exact:(rl_t_C ru).
-      -- exact:(ft_rT IHu).
-    * have h :=(ft_rT IHu).
-      apply:rl_wkT; eassumption.
-    * constructor.
-      -- exact:(rl_t_C ru).
-      -- exact:(ft_rT IHu).
-      -- assumption.
-  + rename w into wu.
-    inversion wΓ; subst.
-    rename H3 into wA'.
-    rename H2 into wΓ'.
-    clear H4.
-    move/semt:(wu).
-    move/(_ wΓ' wA') => IHu.
-    have e : wΓ = w_ext wΓ' wA' wu by apply:WC_hp.
-    subst.
-    have ru := ft_r IHu.
-
-    inversion wA; subst.
-    rename H3 into wAe.
-    rename H5 into wue.
-    have e : wA = w_ar wAe (w_va (w_v1 wu)) wue by apply:WTy_hp.
-    subst.
-    (* have r :  rl_C wΓ' (ft_C IHu) *)
-
-    econstructor.
-    * apply:rl_v0 ; last by apply:ru.
-      -- exact:(rl_t_C ru).
-      -- exact:(ft_rT IHu).
-    * have h :=(ft_rT IHu).
-      constructor.
-      -- constructor.
-         ++ exact: (rl_t_C ru).
-         ++ assumption.
-         ++ assumption.
-      -- apply: rl_wkT; eassumption.
-      -- constructor.
-         constructor.
-         ++ exact: (rl_t_C ru).
-         ++ assumption.
-         ++ assumption.
-      -- apply:rl_wkt; eassumption.
-    * constructor.
-      -- exact:(rl_t_C ru).
-      -- exact:(ft_rT IHu).
-      -- assumption.
-
-  
-- destruct wσ.
-  + move/semt:(w) => /(_ wΓ (w_star wΓ)) IHt.
-    have e : wΔ = w_astar by apply:WC_hp.
-    have rt := (ft_r IHt).
-
-    subst wΔ.
-    econstructor.
-    constructor.
-    * exact:(rl_t_C rt).
-    * simpl.
-      apply:tp_rTm1; last by exact:rt.
-      -- reflexivity.
-      -- unshelve eapply pt_eq1.
-         ++   apply:π_eq_pTη.  
-              apply:rl_hpT.
-              ** constructor.
-                 exact:(rl_t_C rt).
-              ** apply :(ft_rT IHt).
-         ++  apply eq_rect_inv.
-  + 
-    have wΔ' : WC Δ by inversion wΔ.
-    move/semS:(wσ) => /(_ wΓ wΔ') IHσ.
-    move/semT:(w) => /(_  wΔ') IHA.
-    move/semt:(w0) => /(_  wΔ' w) IHu.
-    have wAσ := WTy_sb wΓ wΔ' wσ w.
-    have wuσ := Wtm_sb wΓ wΔ' wσ w0.
-    move/semt:(w2) => /(_  wΓ (w_ar wAσ w1 wuσ)) IHf.
-    move/semt:(w1) => /(_  wΓ wAσ) IHt.
-    have e : wΔ = w_ext wΔ' w w0 by apply:WC_hp.
-    subst.
-    have rσ := fS_r IHσ.
-    have rA := fT_r IHA.
-    have ru := ft_r IHu.
-    have rt := ft_r IHt.
-    have rf := ft_r IHf.
-    have esΔ : fT_C IHA = fS_Δ IHσ.
-    {
-      apply:rl_hpC.
-      - exact:(rl_T_C rA).
-      - exact:(rl_S_C2 rσ).
-    }
-  
-    have esΔ' : fS_Δ IHσ = ft_C IHu.
-    {
-      apply:rl_hpC.
-      - exact:(rl_S_C2 rσ).
-      - exact:(rl_t_C ru).
-    }
-    have e :   fS_Γ IHσ  = ft_C IHt.
-    {
-      apply:rl_hpC.
-      - exact:(rl_S_C1 rσ).
-      - apply:(rl_t_C rt).
-    }
-
-
-    destruct IHσ,IHu,IHA,IHf,IHt; simpl in *; subst.
-    have e :   fT_T0  = ft_T0 by apply:π_eq_pTη; apply:rl_hpT; eassumption.
-    subst.
-    have e :   ft_C1  = ft_C2.
-    {
-      apply:rl_hpC.
-      - exact:(rl_t_C rf).
-      - exact:(rl_t_C rt).
-    }
-    subst.
-    have e : ft_T2 = r_sbT fS_S0 ft_T0.
-    {
-      apply:π_eq_pTη.
-      apply:rl_hpT; last first.
-      + apply:(rl_sbT (pA := mkpT ft_T0)); eassumption.
-      + apply:tp_rT1; last by exact:ft_rT2.
-        * reflexivity.
-        * reflexivity.
-    }
-    subst.
-
-  (* {| pt_C := fS_Γ0; pt_T := r_sbT fS_S0 (eq_rect_r rT ft_T0 (erefl ft_C0)); pt_t := ?Goal2 |} = *)
-  (* {| pt_C := ft_C2; pt_T := ft_T2; pt_t := ft_t2 |} *)
-
-    econstructor.
-    apply:rl_to_ext.
-    * apply:(rl_S_C1 rσ).
-    * apply:(rl_S_C2 rσ).
-    * simpl.
-      apply:tp_rT1; last by exact:rA.
-      -- reflexivity.
-      -- unshelve eapply pT_eq1.
-         ++ now symmetry.
-         ++ reflexivity.
-    * simpl.
-
-      apply:tp_rTm1; last by exact:ru.
-      -- reflexivity.
-      -- reflexivity.
-    * simpl. exact:rσ.
-    * simpl.
-      apply:tp_rTm1; last by exact:ft_r2.
-      -- reflexivity.
-      -- unshelve eapply pt_eq1.
-         ++ reflexivity.
-         ++  reflexivity.
-            (* apply:eq_rect_inv. *)
-    * simpl.
-      apply:tp_rTm1; last by exact:rf.
-      -- reflexivity.
-      -- unshelve eapply pt_eq1.
-         ++ cbn.
-            apply:π_eq_pTη.
-            apply:rl_hpT; last first.
-            ** eassumption.
-            ** cbn.
-               apply:rl_ar.
-               --- apply :(rl_T_C ft_rT1).
-               --- assumption.
-               --- exact:rt. 
-               --- apply:tp_rTm1; last first.
-                   +++ apply: (rl_sbt (pt := mkpt ft_t0)); eassumption.
-                   +++ reflexivity.
-                   +++ reflexivity.
-         ++ cbn.
-            apply:eq_rect_inv.
-    Unshelve.
-    assumption.
-    apply:(WTy_sb _ _ wσ) => //.
-    apply:(Wtm_sb _ _ wσ) => //.
-Defined.
 
 End OmegaGroupoid.
