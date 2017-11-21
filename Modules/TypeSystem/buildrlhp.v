@@ -3,8 +3,7 @@
 Require Import ssreflect ssrfun ssrbool .
 
 Require Import Coq.Logic.JMeq.
-Require Import libhomot lib brunerietype.
-Require Import untypeduippackrl.
+From Modules Require Import libhomot lib brunerietype untypeduippackrl.
 Set Bullet Behavior "Strict Subproofs".
 
 Set Implicit Arguments.

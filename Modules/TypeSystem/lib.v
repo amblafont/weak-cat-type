@@ -3,7 +3,7 @@
 Require Import Coq.Logic.JMeq.
 Require Import ssreflect ssrfun ssrbool .
 
-Require Import libhomot.
+From Modules Require Import libhomot.
 Set Bullet Behavior "Strict Subproofs".
 Set Implicit Arguments.
 

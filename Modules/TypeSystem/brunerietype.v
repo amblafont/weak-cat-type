@@ -1,6 +1,5 @@
 (* -*- coq-prog-name: "coqtop"; -*- *)
 
-Require Import libhomot.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -9,7 +8,7 @@ Unset Printing Implicit Defensive.
 Require Import EqdepFacts.
 Require Import Coq.Logic.JMeq.
 Require Import ssreflect ssrfun ssrbool .
-Require Import lib.
+From Modules Require Import lib libhomot.
 
 Set Bullet Behavior "Strict Subproofs".
 

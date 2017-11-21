@@ -23,7 +23,7 @@ TODO :  remplacer la r_gle Γ,x:A ⊢ en prémisse par Γ ⊢ A
 Require Import EqdepFacts.
 Require Import Coq.Logic.JMeq.
 Require Import ssreflect ssrfun ssrbool .
-Require Import libhomot lib brunerietype.
+From Modules Require Import libhomot lib brunerietype.
 (* From mathcomp Require Import ssreflect ssrfun ssrbool eqtype ssrnat seq. *)
 Set Bullet Behavior "Strict Subproofs".
 
