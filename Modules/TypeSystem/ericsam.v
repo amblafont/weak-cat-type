@@ -1,6 +1,13 @@
 (* -*- coq-prog-name: "coqtop"; -*- *)
 
 
+(*
+Dans Eric et Sam, le fait que les termes ne changent pas quand on fait un weakening
+est crucial pour la première règle de cohérence pour les omega cat : Γ ⊢ t →_A u
+et ∂+Γ ⊢ t : A
+
+A ton vraiment besoin de FV(∂+Γ)=FV(t) ? Une simple inclusion ne suffit pas ?
+ *)
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
@@ -10,183 +17,202 @@ Require Import Coq.Logic.JMeq.
 Require Import ssreflect ssrfun ssrbool .
 From Modules Require Import lib libhomot gensyntax.
 
+
+Require Import Coq.MSets.MSetList.
 Set Bullet Behavior "Strict Subproofs".
 
-
-
+(* We give a structure of ordered type on Var *)
 (*
-Inductive Tm : Type :=
-  | va (x:Var)
-          (* Coh Γ A σ  *)
-  | coh : Con -> Ty -> sub -> Tm
-with Ty : Type :=
-  | star
-  | ar : Ty -> Tm -> Tm -> Ty
-with  Con : Type :=
-      | astar
-          (* Γ A, u tq Γ ⊢ u : A *)
-      | ext : Con -> Ty -> Tm -> Con
-with sub : Type :=
-       | to_star : Tm -> sub
-       | to_ext : sub -> Tm -> Tm -> sub
-with Var : Type :=
-  | vstar
-  (* toutes ces variables sont dans des contextes étendues *)
-  | vwk (v : Var)
-  | v0 
-  | v1 .
-*)
+Module VarMod : OrderedTypeWithLeibniz.
 
+Definition t := Var.
+Definition eq := @eq t.
+Instance eq_equiv : Equivalence eq := eq_equivalence.
 
-(*
-Fixpoint sub_Var (σ : sub) (x : Var) : Tm :=
-   match σ,x with
-     to_star t, vstar => t
-   | to_ext σ a f, vwk x => x .[ σ ]V
-   | to_ext σ a f, v0 => f
-   | to_ext σ a f, v1 => a
-   | _,_ => va vstar (* dummy *)
-   end
-where "s .[ sigma ]V" := (sub_Var sigma s) : subst_scope.
+Inductive ltI : t -> t -> Prop :=
+   lt_v01 : ltI v0 v1
+ | lt_v1wk x : ltI v1 (vwk x)
+ | lt_v0wk x : ltI v0 (vwk x)
+ | lt_vwkwk x y : ltI x y -> ltI (vwk x) (vwk y)
+ (* cette branche ne devrait pas exister si tout est bien typé *)
+ | lt_vstar x : (if x is vstar then False else True) -> ltI vstar x.
 
+Definition lt := ltI.
 
-Fixpoint sub_Tm (σ : sub) (t : Tm) : Tm :=
-  match t with
-  | va x => x .[ σ ]V
-          (* Coh Γ A σ  *)
-  | coh Γ A δ => coh Γ A (δ ∘ σ)
-  end
-    (*
-Γ ⊢ σ : Δ
-E ⊢ δ : Γ
-E ⊢ σ ∘ δ : Δ
-     *)
-with compS (σ : sub) (δ : sub) : sub :=
-       match σ with
-         | to_star t => to_star (t .[ δ ]t)
-         (* Γ ⊢ σ' : Δ' *)
-         (* E ⊢ σ ∘ δ : Δ *)
-         (* E ⊢ (σ ∘ δ)' : Δ' *)
-         | to_ext σ a f => to_ext (σ ∘ δ) (a .[ δ ]t) (f .[ δ ]t)
-       end
-where "s .[ sigma ]t" := (sub_Tm sigma s) : subst_scope
-  and "sigma ∘ delta" := (compS sigma delta) :subst_scope.
-
-
-(* Γ ⊢ idS : Γ *)
-Fixpoint idS (Γ : Con) : sub :=
-  match Γ with
-    astar => to_star (va vstar)
-  | ext Γ A u => to_ext (idS Γ) (va v1) (va v0)
-  end.
-
-
-Fixpoint wkt (t : Tm) : Tm :=
-  match t with
-    va x => va (vwk x)
-  | coh Γ A σ => coh Γ A (wkS σ)
-  end
-with wkS (σ : sub) : sub :=
-  match σ with
-  | to_star t => to_star (wkt t)
-  | to_ext σ a f => to_ext (wkS σ) (wkt a) (wkt f)
-  end.
-
-Fixpoint wkT (A : Ty) : Ty :=
-  match A with
-    star => star
-  | ar A t u => ar (wkT A) (wkt t) (wkt u)
-  end.
-
-
-Open Scope subst_scope.
-
-
-Fixpoint sub_Ty (σ : sub) (A : Ty) : Ty :=
-  match A with
-    star => star
-  | ar A t u => ar (A .[ σ ]T) (t .[ σ ]t) (u .[ σ ]t)
-  end
-    where "s .[ sigma ]T" := (sub_Ty sigma s) : subst_scope.
-
-
-Definition sub_oTy (σ : sub) (A : option Ty) : option Ty :=
-  if A is Some A then Some (A .[ σ ]T) else None.
-
-Notation "s .[ σ ]oT" := (sub_oTy σ s) : subst_scope.
-
-  
-(*
-Fixpoint beq_var ( x y : Var) : bool :=
+Instance lt_strorder : StrictOrder lt.
+Proof.
+  constructor.
+  - move => x.
+    move.
+    induction x; inversion 1.
+    + assumption.
+    + by apply:IHx.
+  - move => x y z Rxy Ryz.
+    move:  z Ryz.
+    induction Rxy; inversion 1 => //=; constructor => //.
+    apply:IHRxy.
+    by subst.
+    (* + constructor. *)
+    (* + constructor => //. *)
+    (* + constructor => //. *)
+    (* + constructor => //. *)
+    (* + constructor => //. *)
+Qed.
+Instance lt_compat : Proper (eq ==> eq ==> iff) lt.
+Proof.
+now unfold eq; split; subst.
+Qed.
+Fixpoint compare (x y : Var) : comparison :=
   match x,y with
-    vstar,vstar => true
-  | vwk v, vwk v' => beq_var v v'
-  | v0,v0 => true
-  | v1, v1 => true
-  | _,_ => false
+  | v0, v0 | v1, v1 | vstar,vstar => Eq
+  | vwk x, vwk y => compare x y
+  | v0, v1 => Lt
+  | v0, vwk x | v1, vwk x  => Lt
+  | vstar,_ => Lt
+  | _,_ => Gt
   end.
-  
-Fixpoint beq_tm (x y : Tm) : bool :=
-        (match x,y with
-       | va x, va x' => beq_var x x'
-       | coh Γ A σ, coh Γ' A' σ' => [ && beq_Con Γ Γ' , beq_Ty A A' & beq_sub σ σ' ]
-       | _,_ => false
-         end)
-with beq_Ty (x y : Ty) :=
-       (
-       match x,y with
-       | star, star => true
-       | ar A t u, ar A' t' u' =>
-         [ && beq_Ty A A' , beq_tm t t' & beq_tm u u' ]
-       (* | none,none => true *)
-       | _,_ => false
+Lemma compare_spec : forall x y, CompSpec eq lt x y (compare x y).
+Proof.
+  induction x.
+  - destruct y => //=; repeat constructor.
+  - destruct y => //=; repeat constructor.
+    case:(IHx y) => ?.
+    + constructor.
+      by apply:f_equal.
+    + repeat constructor => //.
+    + repeat constructor => //.
+  - destruct y => //; repeat constructor.
+  - destruct y => //; repeat constructor.
+Qed.
+(* TODO généraliser ce lemme. C'est bizarre que ça ne soit pas déjà défini dans la lib standard *)
+Definition eq_dec (x y : t) : {eq x y} + {~ eq x y}.
+case_eq (compare x y) => h.
+- left.
+   case:(compare_spec x y) h => //=.
+- right.
+  case:(compare_spec x y) h => //=.
+  intros.
+  rewrite /eq => h'.
+  subst.
+  apply:(irreflexivity (R := lt) ).
+  eassumption.
+- right.
+  case:(compare_spec x y) h => //=.
+  intros.
+  rewrite /eq => h'.
+  subst.
+  apply:(irreflexivity (R := lt) ).
+  eassumption.
+Defined.
+Definition eq_leibniz a b (H:eq a b) := H.
 
-       end)
-with beq_Con (x y : Con) :   bool :=
-      (match x , y with
-  | astar, astar => true
-  | ext Γ A u, ext Γ' A' u' => [ && beq_Con Γ Γ' , beq_Ty A A' & beq_tm u u' ]
-  | _,_ => false
-     end)
-with beq_sub (x y : sub) :   bool :=
-  (match x , y with
-      | to_star t, to_star t' => beq_tm t t'
-      | to_ext σ a f, to_ext σ' a' f' => [ && beq_sub σ σ' , beq_tm a a' & beq_tm f f']
-        | _,_ => false
-        end).
+End VarMod.
 
+Module VarSet  := MSetList.MakeWithLeibniz VarMod.
 *)
+(* On ne peut pas faire de map !! VarSet.map n'existe pas !! *)
+
+(* je ne peux pas faire écrire la fonction récursive correspondant à
+ce type inductif avec VarSet *)
+Inductive fvC : Con -> Var -> Type :=
+| fv_vstar : fvC astar vstar
+| fv_vwk Γ A u x : fvC Γ x -> fvC (ext Γ A u) (vwk x)
+| fv_v0 Γ A u  :   fvC (ext Γ A u) v0
+| fv_v1 Γ A u  :   fvC (ext Γ A u) v1.
+
+Inductive fvTm : Tm -> Var -> Prop :=
+  | fv_va x : fvTm (va x) x
+  | fv_coh Γ A σ x : fvS σ x -> fvTm (coh Γ A σ) x
+with fvS : sub -> Var -> Type :=
+     | fv_to_star t x : fvTm t x -> fvS (to_star t) x
+     | fv_to_ext_σ σ a f x : fvS σ x -> fvS (to_ext σ a f) (vwk x)
+     | fv_to_ext_a σ a f x : fvTm a x -> fvS (to_ext σ a f) (vwk x)
+     | fv_to_ext_f σ a f x : fvTm f x -> fvS (to_ext σ a f) (vwk x).
+
+Inductive fvTy : Ty -> Var -> Type :=
+  | fv_ar_A A t u x : fvTy A x -> fvTy (ar A t u) x
+  | fv_ar_t A t u x : fvTm t x -> fvTy (ar A t u) x
+  | fv_ar_u A t u x : fvTm u x -> fvTy (ar A t u) x.
+
+Fixpoint dimT A : nat :=
+  match A with
+    star => 0
+  | ar A _ _ => S (dimT A)
+  end.
+
+Inductive dimC : Con -> nat -> Type :=
+| dim_astar : dimC astar 0
+| dim_ext_le Γ A u n : dimC Γ n -> dimT A <= n -> dimC (ext Γ A u) n
+| dim_ext Γ A u n : dimC Γ n -> dimT A > n -> dimC (ext Γ A u) (dimT A).
+
+(* FV(∂n+ Γ) *)
+Inductive fvC_pos (n : nat) : Con  -> Var -> Prop :=
+| fv_vstar_pos  : fvC_pos n astar  vstar
+| fv_vwk_pos Γ A u  x : n <> dimT A -> fvC_pos n Γ x -> fvC_pos n (ext Γ A u) (vwk x)
+(* The last element of Γ removed *)
+| fv_vwk_pos_dim Γ A u  x : n = dimT A -> fvC_pos n Γ x ->
+                            match x with v0 | vstar => False | _ => True end ->
+                            fvC_pos n (ext Γ A u) (vwk x)
+| fv_v1_pos Γ A u  : n = dimT A -> fvC_pos n (ext Γ A u) v1.
+
+Inductive fvC_neg (n : nat) : Con  -> Var -> Prop :=
+| fv_vstar_neg  : fvC_neg n astar  vstar
+| fv_vwk_neg Γ A u  x : fvC_pos n Γ x -> fvC_neg n (ext Γ A u) (vwk x)
+| fv_v0_neg Γ A u  : dimT A < n -> fvC_neg n (ext Γ A u) v0
+| fv_v1_neg Γ A u  : dimT A < n -> fvC_neg n (ext Γ A u) v1.
+
 (*
-Definition Var_eqP : Equality.axiom beq_var.
-Admitted.
-Definition tm_eqP : Equality.axiom beq_tm.
-Admitted.
-Definition Ty_eqP : Equality.axiom beq_Ty.
-Admitted.
-Definition sub_eqP : Equality.axiom beq_sub.
-Admitted.
-Definition Con_eqP : Equality.axiom beq_Con.
-Admitted.
-
-Canonical var_eqMixin := EqMixin Var_eqP.
-Canonical var_eqType := Eval hnf in EqType Var var_eqMixin.
-
-Canonical tm_eqMixin := EqMixin tm_eqP.
-Canonical tm_eqType := Eval hnf in EqType Tm tm_eqMixin.
-
-Canonical Ty_eqMixin := EqMixin Ty_eqP.
-Canonical Ty_eqType := Eval hnf in EqType Ty Ty_eqMixin.
-
-Canonical sub_eqMixin := EqMixin sub_eqP.
-Canonical sub_eqType := Eval hnf in EqType sub sub_eqMixin.
-
-Canonical Con_eqMixin := EqMixin Con_eqP.
-Canonical Con_eqType := Eval hnf in EqType Con Con_eqMixin.
-
+En fait si on a FV(t) = FV(∂Γ+) (et FV(A) ⊂ FV(∂Γ+) ? non, inutile ) alors ∂Γ+ ⊢ t : A
+Donc pas besoin de définir ∂Γ+
+????
+TODO vérifier su rpapirer:
 *)
+
+(* On veut que Ty contient toutes les variables libres de Con *)
+
+(*
+Fixpoint fvC (Γ : Con) : VarSet.t :=
+
+  match Γ with
+    astar => VarMod.singleton vstar
+  | ext Γ A u => 
+
+with fvT (A : Ty) : VarSet.t
+with fvTm (t : Tm) : VarSet.t
+with fvS (σ : sub) : VarSet.t
+VarSet.add
 *)
+
+Definition eqFV_CT ( Γ : Con) (A : Ty) : Type := forall x, fvC Γ x -> fvTy A x.
+
+
+Definition eqFV_Ct_pos ( Γ : Con) (t : Tm) : Type :=
+  forall x n, dimC Γ (S n) -> (fvC_pos n Γ x <-> fvTm t x).
+
+Definition eqFV_Ct_neg ( Γ : Con) (t : Tm) : Type :=
+  forall x n, dimC Γ (S n) -> (fvC_neg n Γ x <-> fvTm t x).
+
+Notation "[ 'FVC' A  ~ 'FVT' B ]" := (eqFV_CT A B) : freevar_scope.
+Notation "[  'FV' ∂+  A  ~ 'FVt' B ]" := (eqFV_Ct_pos A B) : freevar_scope.
+Notation "[  'FV' ∂- A  ~ 'FVt' B ]" := (eqFV_Ct_neg A B) : freevar_scope.
+Delimit Scope freevar_scope with fv.
 
 (* La version inductive *)
+
+(* Inductive Wtm_ps : Con -> Ty -> Var -> Type := *)
+(*   w_vstar_ps : Wtm_ps astar star vstar *)
+(* | w_ext_ps Γ A u : Wtm_ps *)
+
+Inductive Wtm_ps : Con -> Ty -> Var -> Type :=
+     | w_vstar_ps : Wtm_ps astar star vstar
+     | w_ext_ps Γ A u :
+         (* WVar Γ A u -> *)
+                        Wtm_ps Γ A u ->
+                        Wtm_ps (ext Γ A (va u)) (ar (wkT A) (va v1) (va (vwk u))) v0
+                               (* Je ne suis pas obligé de signaler que Γ est un contexte étendu mais
+c'est plus simple *)
+     | w_right_ps Γ B w A t u f : Wtm_ps (ext Γ B w) (ar A t (va u)) f -> Wtm_ps (ext Γ B w) A u.
+
 Inductive WVar : Con -> Ty -> Var -> Type :=
   w_vstar : WVar astar star vstar
 | w_vwk Γ A u B x : WVar Γ B x ->
@@ -198,17 +224,20 @@ Inductive WVar : Con -> Ty -> Var -> Type :=
 
 with WC : Con -> Type :=
   w_astar : WC astar
-| w_ext Γ A u : WC Γ -> WTy Γ A ->  Wtm Γ A u -> WC (ext Γ A u)
+| w_ext Γ A u : WC Γ -> WTy Γ A ->  WVar Γ A u -> Wtm_ps Γ A u -> WC (ext Γ A (va u))
 with WTy : Con -> Ty -> Type :=
        | w_star Γ : WC Γ -> WTy Γ star
        | w_ar Γ A t u : WTy Γ A -> Wtm Γ A t -> Wtm Γ A u -> WTy Γ (ar A t u)
 with Wtm : Con -> Ty -> Tm -> Type :=
        | w_va Γ A x : WVar Γ A x -> Wtm Γ A (va x)
-       | w_coh Γ Δ A σ : WC Δ -> WTy Δ A -> WS Γ Δ σ ->  
-                         (* en principe inutile, mais je le rajoute pour avoir la bonne hypothèse
-                           de récurrence *)
-                         (* WTy Γ A.[σ]T  -> *)
+       | w_coh_full Γ Δ A σ : WC Δ -> WTy Δ A -> WS Γ Δ σ ->  
+                         ([ FVC Δ ~ FVT A ])%fv ->
                          Wtm Γ A.[σ]T (coh Δ A σ) 
+       | w_coh_ar Γ Δ A t u σ : WC Δ -> WTy Δ A -> WS Γ Δ σ ->  
+                                Wtm Δ A t -> Wtm Δ A u ->
+                         ([ FV ∂+ Δ ~ FVt t ])%fv ->
+                         ([ FV ∂- Δ ~ FVt u ])%fv ->
+                         Wtm Γ (ar A.[σ]T t.[σ]t u.[σ]t) (coh Δ (ar A t u) σ) 
 with WS : Con -> Con -> sub -> Type :=
      | w_to_star Γ t : Wtm Γ star t -> WS Γ astar (to_star t)
      | w_to_ext Γ A u Δ σ t f : WS Γ Δ σ ->
@@ -220,8 +249,29 @@ with WS : Con -> Con -> sub -> Type :=
 
 
 Instance syntax : Syntax := Build_Syntax WC WTy Wtm WS.
-
+Reserved Notation "Gamma ⊢_ps A : B"
+  (at level 68, A at level 99, no associativity,
+   format "Gamma  ⊢_ps  A  :  B").
+Notation "Gamma ⊢_ps s : A" := (Wtm_ps Gamma A s) : wf_scope.
 Notation "Gamma ⊢_v s : A" := (WVar Gamma A s) : wf_scope.
+(*
+Reserved Notation "Gamma ⊢ A : B"
+  (at level 68, A at level 99, no associativity,
+   format "Gamma  ⊢  A  :  B").
+Reserved Notation "Gamma ⊢ A"
+  (at level 68, A at level 99, no associativity,
+   format "Gamma  ⊢  A").
+
+Reserved Notation "Gamma ⊢ A ⇒ B"
+  (at level 68, A at level 99, no associativity,
+   format "Gamma  ⊢  A  ⇒  B").
+
+Notation "Gamma ⊢ A" := (WTy Gamma A)  : wf_scope.
+Notation "Gamma ⊢ s : A" := (Wtm Gamma A s) : wf_scope.
+Notation "Gamma ⊢  s  ⇒ Delta" := (WS Gamma Delta s) : wf_scope.
+
+Open Scope wf_scope.
+*)
 
 Fixpoint wkTm_inj (a b: Tm) (e : wkt a = wkt b) {struct a}: a = b
 with wkS_inj (x y : sub)(e : wkS x = wkS y) {struct x} : x = y.
@@ -231,6 +281,10 @@ with wkS_inj (x y : sub)(e : wkS x = wkS y) {struct x} : x = y.
       move => ?? /wkS_inj .
       intros; subst.
       f_equal.
+    (* + case:e . *)
+    (*   move => ???? /wkS_inj . *)
+    (*   intros; subst. *)
+    (*   f_equal. *)
   - destruct x,y => //=.
     + case:e.
       by move/wkTm_inj => ->.
@@ -247,8 +301,37 @@ Fixpoint wkTy_inj  (a b: Ty) (e : wkT a = wkT b) {struct a}: a = b.
     reflexivity.
 Qed.
 
-(* Ici j'utilise JMeq_eq général mais j'aurai pu le montrer en particulier en
-montrant UIP spécifiquement sur la syntaxe *)
+(* Ici j'utilise JMeq_eq (UIP) mais j'aurai pu m'en passer en le montrant pour la syntaxe *)
+Fixpoint Wtm_ps_hp Γ A x (wx : Γ ⊢_ps x : A) : is_center wx.
+  destruct wx.
+  - move => wx.
+    apply:JMeq_eq.
+    match goal with [ H : ?C ⊢_ps ?B : ?C2 |- ?a ≅ ?b] =>
+                      set (CC := C) in H;
+                      set (CS := B) in H;
+                      set (CC2 := C2) in H;
+                      change (a ≅ b)
+    end.
+    move:(erefl CC) (erefl CS) (erefl CC2).
+    rewrite {2}/CC {2}/CS {2}/CC2.
+    case:wx => //=.
+  - move => wx'.
+    apply:JMeq_eq.
+    match goal with [ H : ?C ⊢_ps ?B : ?C2 |- ?a ≅ ?b] =>
+                      set (CC := C) in H;
+                      set (CS := B) in H;
+                      set (CC2 := C2) in H;
+                      change (a ≅ b)
+    end.
+    move:(erefl CC) (erefl CS) (erefl CC2).
+    rewrite {2}/CC {2}/CS {2}/CC2.
+    case:wx => //=.
+    intros; subst.
+Abort.
+
+
+(*
+(* Ici j'utilise JMeq_eq mais j'aurai pu m'en passer *)
 Fixpoint WC_hp Γ (wΓ : WC Γ) : is_center wΓ
 with WTy_hp Γ A (wA : Γ ⊢ A) : is_center wA
 with WTm_hp Γ A t (wt : Γ ⊢ t : A) : is_center wt
@@ -710,10 +793,6 @@ Lemma WTy_sb
     * apply:Wtm_sb => //;[| eassumption |] => // .
 Defined.
 
-(* Notation "Gamma ⊢ A" := (WTy Gamma A)  . *)
-(* Notation "Gamma ⊢ s : A" := (Wtm Gamma A s). *)
-(* Notation "Gamma ⊢  s  ⇒ Delta" := (WS Gamma Delta s). *)
-
 Fixpoint WVar_Ty Γ A x (wΓ : WC Γ) (wx : WVar Γ A x):  Γ ⊢ A
 with WTm_Ty Γ A t (wΓ:WC Γ)  (wt : Γ ⊢ t : A) : Γ ⊢ A.
 -  destruct wx.
@@ -725,7 +804,7 @@ with WTm_Ty Γ A t (wΓ:WC Γ)  (wt : Γ ⊢ t : A) : Γ ⊢ A.
     * apply:WVar_Ty.
       -- now inversion wΓ.
       -- eassumption.
-  + assert ( wA : (Γ ⊢ A)).
+  + have wA : Γ ⊢ A.
     {
      apply:WTm_Ty.
       -- now inversion wΓ.
@@ -733,7 +812,7 @@ with WTm_Ty Γ A t (wΓ:WC Γ)  (wt : Γ ⊢ t : A) : Γ ⊢ A.
     }
 
     apply:WTy_wk => //.
-  + assert ( wA : Γ ⊢ A).
+  + have wA : Γ ⊢ A.
     {
      apply:WTm_Ty.
       -- now inversion wΓ.
@@ -748,3 +827,5 @@ with WTm_Ty Γ A t (wΓ:WC Γ)  (wt : Γ ⊢ t : A) : Γ ⊢ A.
   + apply:WVar_Ty; eassumption.
   + apply:WTy_sb; last first; eassumption.
 Qed.
+
+*)

@@ -23,11 +23,12 @@ TODO :  remplacer la r_gle Γ,x:A ⊢ en prémisse par Γ ⊢ A
 Require Import EqdepFacts.
 Require Import Coq.Logic.JMeq.
 Require Import ssreflect ssrfun ssrbool .
-From Modules Require Import libhomot lib brunerietype.
+From Modules Require Import libhomot lib gensyntax brunerietype .
 (* From mathcomp Require Import ssreflect ssrfun ssrbool eqtype ssrnat seq. *)
 Set Bullet Behavior "Strict Subproofs".
 
 
+Module Syn := defsyntax.
 
 
 (* sinon je ne peux plus faire de ltac
@@ -36,13 +37,26 @@ Ltac clear_hprop :=
   match goal with
   | x : WC ?C, x' : WC ?C |- _ =>
     destruct (WC_hp x x')
+             (* la mee chose mais en non déplié.. *)
+  | x : Syn.WC ?C, x' : Syn.WC ?C |- _ =>
+    destruct (WC_hp x x')
+
   | x : WTy ?C ?A, x' : WTy ?C ?A |- _ =>
     destruct (WTy_hp x x')
+  | x : Syn.WTy ?C ?A, x' : Syn.WTy ?C ?A |- _ =>
+    destruct (WTy_hp x x')
+
   | x : Wtm ?C ?A ?t, x' : Wtm ?C ?A ?t |- _ =>
     destruct (WTm_hp x x')
+  | x : Syn.Wtm ?C ?A ?t, x' : Syn.Wtm ?C ?A ?t |- _ =>
+    destruct (WTm_hp x x')
+
   | x : WVar ?C ?A ?t, x' : WVar ?C ?A ?t |- _ =>
     destruct (WVar_hp x x')
+
   | x : WS ?C ?A ?t, x' : WS ?C ?A ?t |- _ =>
+    destruct (WS_hp x x')
+  | x : Syn.WS ?C ?A ?t, x' : Syn.WS ?C ?A ?t |- _ =>
     destruct (WS_hp x x')
   end.
 

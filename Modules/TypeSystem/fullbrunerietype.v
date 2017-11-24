@@ -1,5 +1,6 @@
 (* -*- coq-prog-name: "coqtop"; -*- *)
 
+(* Ici on a le droit à tous les contextes *)
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -8,13 +9,13 @@ Unset Printing Implicit Defensive.
 Require Import EqdepFacts.
 Require Import Coq.Logic.JMeq.
 Require Import ssreflect ssrfun ssrbool .
-From Modules Require Import lib libhomot gensyntax.
+From Modules Require Import lib libhomot defsyntax.
 
 Set Bullet Behavior "Strict Subproofs".
 
 
+Module Syn := defsyntax.
 
-(*
 Inductive Tm : Type :=
   | va (x:Var)
           (* Coh Γ A σ  *)
@@ -23,32 +24,30 @@ with Ty : Type :=
   | star
   | ar : Ty -> Tm -> Tm -> Ty
 with  Con : Type :=
-      | astar
+      | empty
           (* Γ A, u tq Γ ⊢ u : A *)
-      | ext : Con -> Ty -> Tm -> Con
+      | ext : Con -> Ty -> Con
 with sub : Type :=
-       | to_star : Tm -> sub
-       | to_ext : sub -> Tm -> Tm -> sub
+       | to_empty : sub
+       | to_ext : sub -> Tm -> sub
 with Var : Type :=
-  | vstar
-  (* toutes ces variables sont dans des contextes étendues *)
-  | vwk (v : Var)
-  | v0 
-  | v1 .
-*)
+  | v0
+  | vwk (v : Var).
+
+Instance preSyntax : PreSyntax := {| Syn.Con := Con ;  Syn.Ty := Ty ; Syn.Tm := Tm ; Syn.sub := sub |}.
 
 
-(*
+
 Fixpoint sub_Var (σ : sub) (x : Var) : Tm :=
    match σ,x with
-     to_star t, vstar => t
-   | to_ext σ a f, vwk x => x .[ σ ]V
-   | to_ext σ a f, v0 => f
-   | to_ext σ a f, v1 => a
-   | _,_ => va vstar (* dummy *)
+   | to_ext σ a , vwk x => x .[ σ ]V
+   | to_ext σ a , v0 => a
+   | _,_ => va v0 (* dummy *)
    end
 where "s .[ sigma ]V" := (sub_Var sigma s) : subst_scope.
 
+(* Reserved Notation "sigma ∘ delta" := (compS sigma delta)(at level 40, left associativity) : subst_scope. *)
+(* Reserved Notation "sigma ∘ delta"  (at level 40, left associativity). *)
 
 Fixpoint sub_Tm (σ : sub) (t : Tm) : Tm :=
   match t with
@@ -63,22 +62,16 @@ E ⊢ σ ∘ δ : Δ
      *)
 with compS (σ : sub) (δ : sub) : sub :=
        match σ with
-         | to_star t => to_star (t .[ δ ]t)
+         | to_empty  => to_empty
          (* Γ ⊢ σ' : Δ' *)
          (* E ⊢ σ ∘ δ : Δ *)
          (* E ⊢ (σ ∘ δ)' : Δ' *)
-         | to_ext σ a f => to_ext (σ ∘ δ) (a .[ δ ]t) (f .[ δ ]t)
+         | to_ext σ a  => to_ext (σ ∘ δ) (a .[ δ ]t) 
        end
 where "s .[ sigma ]t" := (sub_Tm sigma s) : subst_scope
   and "sigma ∘ delta" := (compS sigma delta) :subst_scope.
 
 
-(* Γ ⊢ idS : Γ *)
-Fixpoint idS (Γ : Con) : sub :=
-  match Γ with
-    astar => to_star (va vstar)
-  | ext Γ A u => to_ext (idS Γ) (va v1) (va v0)
-  end.
 
 
 Fixpoint wkt (t : Tm) : Tm :=
@@ -88,8 +81,8 @@ Fixpoint wkt (t : Tm) : Tm :=
   end
 with wkS (σ : sub) : sub :=
   match σ with
-  | to_star t => to_star (wkt t)
-  | to_ext σ a f => to_ext (wkS σ) (wkt a) (wkt f)
+  | to_empty => to_empty
+  | to_ext σ a => to_ext (wkS σ) (wkt a)
   end.
 
 Fixpoint wkT (A : Ty) : Ty :=
@@ -110,10 +103,6 @@ Fixpoint sub_Ty (σ : sub) (A : Ty) : Ty :=
     where "s .[ sigma ]T" := (sub_Ty sigma s) : subst_scope.
 
 
-Definition sub_oTy (σ : sub) (A : option Ty) : option Ty :=
-  if A is Some A then Some (A .[ σ ]T) else None.
-
-Notation "s .[ σ ]oT" := (sub_oTy σ s) : subst_scope.
 
   
 (*
@@ -184,45 +173,76 @@ Canonical Con_eqMixin := EqMixin Con_eqP.
 Canonical Con_eqType := Eval hnf in EqType Con Con_eqMixin.
 
 *)
-*)
+
 
 (* La version inductive *)
 Inductive WVar : Con -> Ty -> Var -> Type :=
-  w_vstar : WVar astar star vstar
-| w_vwk Γ A u B x : WVar Γ B x ->
+| w_vwk Γ A B x : WVar Γ B x ->
                  (* Je dois aussi mettre les hypothèses suivantes *)
-                    Wtm Γ A u ->
-                    WVar (ext Γ A u) (wkT B) (vwk x)
-| w_v1 Γ A u : Wtm Γ A u -> WVar (ext Γ A u) (wkT A) v1
-| w_v0 Γ A u : Wtm Γ A u -> WVar (ext Γ A u) (ar (wkT A) (va v1) (wkt u)) v0
+                    WVar (ext Γ A) (wkT B) (vwk x)
+| w_v0 Γ A  :  WVar (ext Γ A) ((wkT A) ) v0
+
+
+with isContr : Con -> Type :=
+| c_astar : isContr (ext empty star)
+                    (* Je suis un peu paranoique dans cette définition car j'ai la flemme de montrer
+les lemmes adéquats *)
+| c_ext Γ A u : isContr Γ -> WTy Γ A -> Wtm Γ A u ->
+                WTy (ext Γ A) (wkT A) -> Wtm (ext Γ A) (wkT A) (wkt u) ->
+                isContr (ext (ext Γ A) (ar ((wkT A)) (va v0) ((wkt u))))
 
 with WC : Con -> Type :=
-  w_astar : WC astar
-| w_ext Γ A u : WC Γ -> WTy Γ A ->  Wtm Γ A u -> WC (ext Γ A u)
+  w_empty : WC empty
+| w_ext Γ A  : WC Γ -> WTy Γ A ->   WC (ext Γ A )
 with WTy : Con -> Ty -> Type :=
        | w_star Γ : WC Γ -> WTy Γ star
-       | w_ar Γ A t u : WTy Γ A -> Wtm Γ A t -> Wtm Γ A u -> WTy Γ (ar A t u)
+       | w_ar Γ A t u : WTy Γ A -> Wtm Γ A t -> Wtm Γ A u ->
+                        WTy Γ (ar A t u)
 with Wtm : Con -> Ty -> Tm -> Type :=
        | w_va Γ A x : WVar Γ A x -> Wtm Γ A (va x)
-       | w_coh Γ Δ A σ : WC Δ -> WTy Δ A -> WS Γ Δ σ ->  
+       | w_coh Γ Δ A σ : isContr Δ
+                                 (* inutile car redondant avec isContr *)
+                         -> WC Δ
+                         -> WTy Δ A -> WS Γ Δ σ ->
                          (* en principe inutile, mais je le rajoute pour avoir la bonne hypothèse
                            de récurrence *)
                          (* WTy Γ A.[σ]T  -> *)
                          Wtm Γ A.[σ]T (coh Δ A σ) 
 with WS : Con -> Con -> sub -> Type :=
-     | w_to_star Γ t : Wtm Γ star t -> WS Γ astar (to_star t)
-     | w_to_ext Γ A u Δ σ t f : WS Γ Δ σ ->
+     | w_to_empty Γ  : WS Γ empty (to_empty)
+     | w_to_ext Γ A Δ σ t : WS Γ Δ σ ->
                                 WTy Δ A ->
-                                Wtm Δ A u ->
                                 Wtm Γ A.[σ]T t ->
-                                Wtm Γ (ar (A.[ σ ]T) t (u.[σ]t)) f ->
-                                WS Γ (ext Δ A u) (to_ext σ t f).
+                                WS Γ (ext Δ A) (to_ext σ t ).
 
 
+Lemma isContr_ext_inv Γ A u  (P : forall  : isContr (ext Γ A u)
+(*
+Record r_isContr Γ A u :=
+  { isC_u : Tm;
+    isC_eu : u = wkt isC_u ;
+    isC_rec : isContr Γ;
+
+
+Fixpoint isContr_fix (Γ : Con) : Type :=
+  match Γ with
+| ext empty star => True
+| ext (ext Γ A) (ar _ (va v0) u) => { u' : Tm & u = wkt u' } * isContr Γ * 
+| _ => False
+  end.
+*)
 Instance syntax : Syntax := Build_Syntax WC WTy Wtm WS.
 
-Notation "Gamma ⊢_v s : A" := (WVar Gamma A s) : wf_scope.
+(*
+Lemma isContr_WC Γ (isC : isContr Γ) : WC Γ.
+  induction isC.
+  - repeat constructor.
+  - repeat constructor => //.
+Qed.
+*)
 
+
+(*
 Fixpoint wkTm_inj (a b: Tm) (e : wkt a = wkt b) {struct a}: a = b
 with wkS_inj (x y : sub)(e : wkS x = wkS y) {struct x} : x = y.
   - destruct a,b => //=.
@@ -748,3 +768,5 @@ with WTm_Ty Γ A t (wΓ:WC Γ)  (wt : Γ ⊢ t : A) : Γ ⊢ A.
   + apply:WVar_Ty; eassumption.
   + apply:WTy_sb; last first; eassumption.
 Qed.
+
+*)

@@ -3,7 +3,7 @@
 Require Import ssreflect ssrfun ssrbool .
 
 Require Import Coq.Logic.JMeq.
-From Modules Require Import libhomot lib brunerietype untypeduippackrl.
+From Modules Require Import gensyntax libhomot lib brunerietype untypeduippackrl.
 Set Bullet Behavior "Strict Subproofs".
 
 Set Implicit Arguments.
@@ -148,7 +148,7 @@ with semS (Γ Δ : Con)  (σ : sub)
     unshelve econstructor.
     * exact (fC_C semC).
     * apply:r_rl_star=> //.
-    * abstract(clear_hprop; by move/rl_star:(fC_r semC)).
+    * abstract (clear_hprop; by move/rl_star:(fC_r semC)).
   + specialize (semT _ _ wΓ wA).
     have st := (semt _ _ _ wΓ wA w).
     have su := (semt _ _ _ wΓ wA w0).
