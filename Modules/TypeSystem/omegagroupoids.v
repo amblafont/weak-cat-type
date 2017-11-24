@@ -43,6 +43,8 @@ Local Open Scope subst_scope.
 (* TODO : imposer l'existence d'un ⟦coh⟧ dans un contexte, comme dans Thorsten et Nuo,
 et imposer que ⟦ coh [σ] ⟧ = ⟦ coh ⟧ ∘ ⟦σ⟧, ce qui permet d'éliminer sb_dTm *)
 
+(* Ce record indique que d: Decl permet d'interpréter la syntaxe de Brunerie
+compatiblement avec le type globulaire G *)
 Record isOmegaGroupoid (G : GType) (d : Decl) :=
   {
     dC_astar : ⟦ (w_astar :  x:⋆ ⊢) ⟧C = G    ;
