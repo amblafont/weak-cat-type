@@ -1,4 +1,7 @@
 (* -*- coq-prog-name: "coqtop"; -*- *)
+(* Les invariants de la récurrence sont les records rS, rC, rtm, rT
+Le type des champs correspond aux énoncés des lemmes de la preuve Guillaume Brunerie
+*)
 
 (* ici on n'utilise pas autosubst qui de toute manière ne marche pas pour
 les types mutuellement inductifs *)
@@ -81,6 +84,13 @@ Section OmegaGroupoid.
 (* en utilisant uip *)
 (* Notation "x ≅ y :> P" := (eq_dep _ P _  x _ y) (at level 70, y at next level, no associativity). *)
 
+  (** invariants de la récurrence
+Significations des suffixes :
+C : contextes
+T : Types
+tm : termes
+S : substitutions
+   *)
 Record rC :=
   mkRC { C_TY : Type ;
          C_fib : Fib C_TY;
@@ -96,6 +106,21 @@ Record rC :=
           JA fibP d (idA a) = d a
 
        }.
+Record rT (Γ : rC) :=
+  mkRTy { T_TY : C_TY Γ  -> Type;
+          iA : forall (a : T) , T_TY (idA Γ a) ;
+          T_fib : forall (γ : _) , Fib (T_TY γ)
+        }.
+
+Record rtm {Γ : rC} (A : rT Γ) :=
+  mkRt { t_t : forall (γ : _) , T_TY A γ;
+         eq_iA : forall (a : T) , t_t (idA Γ a) = iA A a }.
+
+Record rS (Γ Δ : rC ) :=
+  mkRS { S : C_TY Γ -> C_TY Δ;
+         sb_idA : forall (a : T) , S (idA Γ a) = idA Δ a }.
+(* Fin dees invariants de la récurrence *)
+
 
 Lemma rCeq (x y : rC)
       (e : C_TY x = C_TY y)
@@ -136,11 +161,6 @@ Lemma rCeq (x y : rC)
 
 
 
-Record rT (Γ : rC) :=
-  mkRTy { T_TY : C_TY Γ  -> Type;
-          iA : forall (a : T) , T_TY (idA Γ a) ;
-          T_fib : forall (γ : _) , Fib (T_TY γ)
-        }.
 
 Lemma rTeq (C C' : rC) (x : rT C) (y : rT C') :
   C = C' ->
@@ -184,9 +204,6 @@ Lemma rTeq (C C' : rC) (x : rT C) (y : rT C') :
 
 Qed.
 
-Record rS (Γ Δ : rC ) :=
-  mkRS { S : C_TY Γ -> C_TY Δ;
-         sb_idA : forall (a : T) , S (idA Γ a) = idA Δ a }.
 
 Lemma rSeq (C C' D D' : rC) (x : rS C D) (y : rS C' D') :
   C = C' -> D = D' ->
@@ -212,9 +229,6 @@ Lemma rSeq (C C' D D' : rC) (x : rS C D) (y : rS C' D') :
 Qed.
 
 
-Record rtm {Γ : rC} (A : rT Γ) :=
-  mkRt { t_t : forall (γ : _) , T_TY A γ;
-         eq_iA : forall (a : T) , t_t (idA Γ a) = iA A a }.
 
 Lemma rtmeq (C C' : rC) (A : rT C) (A' : rT C') (x : rtm A) (y : rtm A') :
       ( C = C') -> (A ≅ A') -> (forall γ γ', γ ≅ γ' -> t_t x γ ≅ t_t y γ') -> x ≅ y.
