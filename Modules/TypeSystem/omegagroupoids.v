@@ -21,44 +21,23 @@ Local Notation "❪ t ❫" := (to_star t)   : subst_scope.
 Local Notation " Gamma ,S a  , f" := (to_ext Gamma a f) (at level 68, a at level 58)  : subst_scope.
 
 
-(* Local Notation " Gamma , # : B , # → u " := (ext Gamma B u) (at level 68, B at level 58)  : context_scope. *)
-(* Local Notation "{{ x : A  &&& [ [  ] :: P ] && Q }}" *)
 (* TODO : utiliser sigT2 au lieu de extΣ *)
 Local Notation "{{ x : A  , # :  P  , # → Q }}"
   :=
     (@extΣ_G A (fun x => P) (fun  x => Q))
       (at level 68, x at level 58, A at level 58, P at level 58) : ext_scope.
-(* (* (at level 68, x at level 99,  P at level 58). *) *)
-(*   (* := (@extΣ_G A (fun x => P) (fun  x => Q)) (at level 68, x at level 99, y at level 99, P at level 58). *) *)
 Delimit Scope ext_scope with ext.
-Open Scope ext_scope.
-(* Goal (forall A P Q, @extΣ_G A P Q = A). *)
-(* Goal ( forall (A : Type) (P : A -> GType) (Q : forall γ : A, P γ), {{x : A , # : P x , # → Q x}}%ext = @extΣ_G A P Q ). *)
-(*   reflexivity. *)
-(* Check (forall (A : Type) (P : A -> GType) (Q : forall γ : A, P γ), {x : A & P x & Q x} = A). *)
+Local Open Scope ext_scope.
 
-(* Check (forall (A : Type) (P : A -> GType) (Q : forall γ : A, P γ), {x : A & P x & Q x} = A). *)
-(* Check (forall A P Q, @extΣ_G A P Q = A). *)
-(* Check (fun (A : Type) (P : A -> GType) (Q : forall γ : A, ob (P γ)) => {{ x : A &&& [ [ y ] ::   P x ]  && Q x y }}). *)
-(* Check (forall (A : Type) (P : A -> GType) (Q : forall γ : A, P γ), {{ x : A &&& [ [ y ] ::   P x ]  && Q x y }} = A). *)
-(* Check (forall A P Q, { x : A &&& y : (P x) &&&& Q x y } = A). *)
-
-(* Delimit Scope ext_scope with ext. *)
 Delimit Scope context_scope with C.
 Delimit Scope star_scope with T.
 Delimit Scope subst_scope with S.
-(* Check (forall σ a f, to_ext σ a f = σ). *)
-(* Check (forall σ a f, σ ,S a , f = σ). *)
 
 
 Local Open Scope context_scope.
 Local Open Scope Ty_scope.
 Local Open Scope subst_scope.
 
-
-(* sigT2 *)
-(* Reserved Notation "{ x : A  & P  & Q }" (at level 0, x at level 99). *)
-(* Local Notation "{ 'Σ' x : A 'Σ' y : Q , R }" := (@extΣ_G A (fun x => Q) (fun x y => R)). *)
 
 (* TODO : factoriser avec isOmegaCategory *)
 (* TODO : imposer l'existence d'un ⟦coh⟧ dans un contexte, comme dans Thorsten et Nuo,
