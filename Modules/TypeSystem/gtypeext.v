@@ -9,14 +9,16 @@ Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
 CoInductive GType :=
-  Gtyp { ob :> Type ;
-         hom :> ob -> ob -> GType }.
+  Gtyp { ob : Type ;
+         hom : ob -> ob -> GType }.
+
+Notation "∣ A ∣" := (ob A) (at level 99).
 
 Class Decl {P : PreSyntax} {S : Syntax} :=
   { dC : forall Γ, WC Γ -> Type;
     dTy : forall Γ A (wΓ : WC Γ)(wA: Γ ⊢ A), dC wΓ -> GType ;
     dTm : forall Γ A t (wΓ : WC Γ)(wt : Γ ⊢ t : A)(wA: Γ ⊢ A)(γ : dC wΓ) ,
-            dTy wA γ;
+            ∣ dTy wA γ ∣ ;
     dS : forall Γ Δ σ (wσ: Γ ⊢ σ ⇒ Δ)(wΓ : WC Γ)(wΔ : WC Δ) (γ : dC wΓ),
             dC wΔ
   }.
@@ -24,8 +26,8 @@ Class Decl {P : PreSyntax} {S : Syntax} :=
 Definition extΣ (Γ : Type) (A : Γ -> Type) (B : forall γ (a : A γ), Type) :=
   { δ : { γ : Γ & A γ} & B (δ..1) δ..2}.
 
-Definition extΣ_G (Γ : Type) (A : Γ -> GType) (u : forall γ, A γ) :=
-  { δ : { γ : Γ & A γ} & hom δ..2 (u δ..1) }.
+Definition extΣ_G (Γ : Type) (A : Γ -> GType) (u : forall γ, ∣ A γ ∣) :=
+  { δ : { γ : Γ & ∣ A γ ∣ } & ∣ hom δ..2 (u δ..1) ∣ }.
 
 Notation "⟦ X ⟧C" := (dC X).
 Notation "⟦ X ⟧T" := (dTy X).

@@ -12,7 +12,7 @@ Unset Printing Implicit Defensive.
 Local Notation "⟦ X ⟧V" := (dTm (w_va X)).
 
 Local Notation "x:⋆" := astar : context_scope.
-Local Notation " Gamma , # : B , # → u " := (ext Gamma B u) (at level 68, B at level 58)  : context_scope.
+Local Notation " Gamma , B , #0 → u " := (ext Gamma B u) (at level 68, B at level 58)  : context_scope.
 
 Local Notation "⋆" := star : Ty_scope.
 Local Notation "x →⟨ B ⟩ y" := (ar B x y)  (at level 68, B at level 58) : Ty_scope.
@@ -22,7 +22,7 @@ Local Notation " Gamma ,S a  , f" := (to_ext Gamma a f) (at level 68, a at level
 
 
 (* TODO : utiliser sigT2 au lieu de extΣ *)
-Local Notation "{{ x : A  , # :  P  , # → Q }}"
+Local Notation "{{ x : A  ,  P  , #0 → Q }}"
   :=
     (@extΣ_G A (fun x => P) (fun  x => Q))
       (at level 68, x at level 58, A at level 58, P at level 58) : ext_scope.
@@ -47,11 +47,11 @@ et imposer que ⟦ coh [σ] ⟧ = ⟦ coh ⟧ ∘ ⟦σ⟧, ce qui permet d'éli
 compatiblement avec le type globulaire G *)
 Record isOmegaGroupoid (G : GType) (d : Decl) :=
   {
-    dC_astar : ⟦ (w_astar :  x:⋆ ⊢) ⟧C = G    ;
+    dC_astar : ⟦ (w_astar :  x:⋆ ⊢) ⟧C = ∣ G ∣     ;
     dC_ext : forall Γ A u (wΓ : Γ ⊢) (wA : Γ ⊢ A) (wu : Γ ⊢ u : A),
         (* TODO: définir un type inductif particulier pour cette extension *)
-        ⟦ w_ext wΓ wA wu :  Γ , # : A , # → u ⊢ ⟧C =
-        {{ γ : ⟦ wΓ ⟧C ,  # : ⟦ wA ⟧T γ , # → ⟦ wu ⟧t wA γ }} ;
+        ⟦ w_ext wΓ wA wu :  Γ , A , #0 → u ⊢ ⟧C =
+        {{ γ : ⟦ wΓ ⟧C ,  ⟦ wA ⟧T γ , #0 → ⟦ wu ⟧t wA γ }} ;
         (* @extΣ_G ⟦ wΓ ⟧C ⟦ wA ⟧T (⟦ wu ⟧t wA); *)
     dT_star : forall Γ (wΓ : Γ ⊢)(γ : ⟦ wΓ ⟧C), ⟦ w_star wΓ : Γ ⊢ ⋆ ⟧T γ = G;
     dT_ar : forall Γ A t u (wΓ : Γ ⊢) (wA : Γ ⊢ A) (wt : Γ ⊢ t : A)(wu : Γ ⊢ u : A)
@@ -79,44 +79,45 @@ Record isOmegaGroupoid (G : GType) (d : Decl) :=
     dTm_vstar : forall (γ : ⟦ w_astar : x:⋆ ⊢  ⟧C),
         ⟦ w_vstar : x:⋆ ⊢_v vstar : ⋆ ⟧V (w_star w_astar : x:⋆ ⊢ ⋆) γ ≅ γ;
     dTm_v1 : forall Γ A u (wΓ : Γ ⊢) (wA : Γ ⊢ A) (wu : Γ ⊢ u : A)
-               (wAe : Γ , # : A , # → u ⊢ wkT A)
-               (γ : ⟦ w_ext wΓ wA wu : Γ , # : A , # → u ⊢ ⟧C)
-               (γ2 : ⟦ wΓ ⟧C) (sa : ⟦ wA ⟧T γ2)
-               (sf : hom sa (⟦ wu ⟧t wA γ2)),
+               (wAe : Γ , A, #0 → u ⊢ wkT A)
+               (γ : ⟦ w_ext wΓ wA wu : Γ ,  A , #0 → u ⊢ ⟧C)
+               (γ2 : ⟦ wΓ ⟧C) (sa : ∣ ⟦ wA ⟧T γ2 ∣ )
+               (sf : ∣ hom sa (⟦ wu ⟧t wA γ2) ∣ ),
         γ ≅ (((γ2 ,Σ sa) ,Σ sf) :
-               {{ x : ⟦ wΓ⟧C , # : ⟦ wA ⟧T x , # → (⟦ wu ⟧t wA x) }})
-               (* @extΣ_G ⟦wΓ⟧C ⟦wA⟧T (⟦wu⟧t wA)) *)
-               (* { y : ⟦ wΓ⟧C & ⟦wA⟧T y & (⟦ wu ⟧t wA y) }) *)
+               {{ x : ⟦ wΓ⟧C ,  ⟦ wA ⟧T x , #0 → (⟦ wu ⟧t wA x) }})
         ->
 
-        ⟦ w_v1 wu : Γ , # : A , # → u ⊢_v v1 : _⟧V wAe γ ≅ sa;
+               (* @extΣ_G ⟦wΓ⟧C ⟦wA⟧T (⟦wu⟧t wA)) *)
+               (* { y : ⟦ wΓ⟧C & ⟦wA⟧T y & (⟦ wu ⟧t wA y) }) *)
+
+        ⟦ w_v1 wu : Γ ,  A , #0 → u ⊢_v v1 : _⟧V wAe γ ≅ sa;
     dTm_v0 : forall Γ A u (wΓ : Γ ⊢) (wA : Γ ⊢ A) (wu : Γ ⊢ u : A)
-               (wAe : Γ , # : A , # → u ⊢ wkT A)
-               (wue : Γ , # : A , # → u ⊢ wkt u : wkT A)
-               (γ : ⟦ w_ext wΓ wA wu : Γ , # : A , # → u ⊢  ⟧C)
-               (γ2 : ⟦ wΓ ⟧C) (sa : ⟦ wA ⟧T γ2)
-               (sf : hom sa (⟦ wu ⟧t wA γ2)),
-        γ ≅ (((γ2 ,Σ sa) ,Σ sf) : 
-               {{ x : ⟦ wΓ⟧C , # : ⟦ wA ⟧T x , # → (⟦ wu ⟧t wA x) }})
+               (wAe : Γ ,  A , #0 → u ⊢ wkT A)
+               (wue : Γ ,  A , #0 → u ⊢ wkt u : wkT A)
+               (γ : ⟦ w_ext wΓ wA wu : Γ ,  A , #0 → u ⊢  ⟧C)
+               (γ2 : ⟦ wΓ ⟧C) (sa : ∣ ⟦ wA ⟧T γ2 ∣)
+               (sf : ∣ hom sa (⟦ wu ⟧t wA γ2) ∣),
+        γ ≅ (((γ2 ,Σ sa) ,Σ sf) :
+               {{ x : ⟦ wΓ⟧C ,  ⟦ wA ⟧T x , #0 → (⟦ wu ⟧t wA x) }})
           
           ->
-        ⟦ w_v0 wu : Γ , # : A , # → u ⊢_v v0 : _ ⟧V
+        ⟦ w_v0 wu : Γ ,  A , #0 → u ⊢_v v0 : _ ⟧V
                    (w_ar wAe (w_va (w_v1 wu)) wue :
-                         Γ , # : A , # → u ⊢ (va v1) →⟨ wkT A ⟩ (wkt u) 
+                         Γ ,  A , #0 → u ⊢ (va v1) →⟨ wkT A ⟩ (wkt u) 
                      )
                    γ ≅ sf;
     dTm_vwk : forall Γ A u B x (wΓ : Γ ⊢) (wA : Γ ⊢ A) (wu : Γ ⊢ u : A)
                 (wB : Γ ⊢ B)
-                (wBe : Γ , # : A , # → u ⊢ wkT B)
+                (wBe : Γ ,  A , #0 → u ⊢ wkT B)
                 (wx : Γ ⊢_v x :  B )
-               (γ : ⟦ w_ext wΓ wA wu : Γ , # : A , # → u ⊢  ⟧C)
-               (γ2 : ⟦ wΓ ⟧C) (sa : ⟦ wA ⟧T γ2)
-               (sf : hom sa (⟦ wu ⟧t wA γ2)),
+               (γ : ⟦ w_ext wΓ wA wu : Γ ,  A , #0 → u ⊢  ⟧C)
+               (γ2 : ⟦ wΓ ⟧C) (sa : ∣ ⟦ wA ⟧T γ2 ∣)
+               (sf : ∣ hom sa (⟦ wu ⟧t wA γ2) ∣),
         γ ≅ (((γ2 ,Σ sa) ,Σ sf) :
-               {{ x : ⟦ wΓ⟧C , # : ⟦ wA ⟧T x , # → (⟦ wu ⟧t wA x) }})
+               {{ x : ⟦ wΓ⟧C ,  ⟦ wA ⟧T x , #0 → (⟦ wu ⟧t wA x) }})
 
           ->
-        ⟦ w_vwk wx wu : Γ , # : A , # → u ⊢_v vwk x : wkT B ⟧V wBe γ ≅ ⟦ wx ⟧V wB γ2;
+        ⟦ w_vwk wx wu : Γ ,  A , #0 → u ⊢_v vwk x : wkT B ⟧V wBe γ ≅ ⟦ wx ⟧V wB γ2;
 
     dS_to_star : forall Γ t (wΓ : Γ ⊢) (wt : Γ ⊢ t : star) (γ : ⟦ wΓ ⟧C),
         ⟦ w_to_star wt : Γ ⊢ ❪ t ❫ ⇒ x:⋆  ⟧S _ (w_astar : x:⋆ ⊢) γ
@@ -129,19 +130,20 @@ Record isOmegaGroupoid (G : GType) (d : Decl) :=
                  (* (wf : Δ ⊢ f.[σ]t : (a →⟨ A.[σ]T ⟩ u.[σ]t)) *)
                  (wf : Δ ⊢ f : (a →⟨ A.[σ]T ⟩ u.[σ]t))
                  (γ : ⟦ wΔ ⟧C)
-                 (sa : ⟦ wA ⟧T (⟦ wσ ⟧S wΔ wΓ γ ))
-                 (suσ : forall γ, ⟦ wA ⟧T (⟦ wσ ⟧S wΔ wΓ γ ))
-                 (sf : hom sa _)
+                 (sa : ∣ ⟦ wA ⟧T (⟦ wσ ⟧S wΔ wΓ γ ) ∣)
+                 (suσ : forall γ, ∣ ⟦ wA ⟧T (⟦ wσ ⟧S wΔ wΓ γ ) ∣)
+                 (sf : ∣ hom sa _ ∣)
                  (* TODO réfléchir : cette définition est potentiellement fausse *)
       , sa ≅ ⟦ wa ⟧t wAσ γ ->
         suσ γ ≅ ⟦ wu ⟧t wA (⟦ wσ ⟧S wΔ wΓ γ ) ->
         sf ≅ ⟦ wf ⟧t (w_ar  wAσ wa wuσ : Δ ⊢ a →⟨ A.[σ]T ⟩ u.[σ]t ) γ ->
-        ⟦ w_to_ext wσ wA wu wa wf : Δ ⊢ (σ ,S a , f) ⇒ (Γ , # : A , # → u) ⟧S wΔ
-                                   (w_ext wΓ wA wu : Γ , # : A , # → u ⊢) γ ≅
+        ⟦ w_to_ext wσ wA wu wa wf : Δ ⊢ (σ ,S a , f) ⇒ (Γ ,  A , #0 → u) ⟧S wΔ
+                                   (w_ext wΓ wA wu : Γ ,  A , #0 → u ⊢) γ ≅
                                    (* (( *)
-                                       ((((⟦ wσ ⟧S wΔ wΓ γ ,Σ sa) : sigT ⟦ wA ⟧T) 
+                                   ((((⟦ wσ ⟧S wΔ wΓ γ ,Σ sa) :
+                                        sigT (fun γ => ∣ ⟦ wA ⟧T γ ∣))
                                         ,Σ sf) : 
-          { x : sigT ⟦wA⟧T &  hom x..2 (⟦ wu ⟧t wA x..1) })
+          { x : sigT (fun γ => ∣ ⟦wA⟧T γ ∣) & ∣ hom x..2 (⟦ wu ⟧t wA x..1) ∣ })
 
                                 
     }.
