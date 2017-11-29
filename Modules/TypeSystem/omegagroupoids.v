@@ -24,8 +24,12 @@ Local Notation " Gamma ,S a  , f" := (to_ext Gamma a f) (at level 68, a at level
 (* TODO : utiliser sigT2 au lieu de extΣ *)
 Local Notation "{{ x : A  ,  P  , #0 → Q }}"
   :=
-    (@extΣ_G A (fun x => P) (fun  x => Q))
+      {δ : {x : A & ∣ P ∣} & ∣ hom δ ..2 ((fun x => Q) δ..1) ∣}
       (at level 68, x at level 58, A at level 58, P at level 58) : ext_scope.
+
+Delimit Scope ext_scope with ext.
+Local Open Scope ext_scope.
+
 Delimit Scope ext_scope with ext.
 Local Open Scope ext_scope.
 
