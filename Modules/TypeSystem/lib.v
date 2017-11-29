@@ -13,16 +13,69 @@ Unset Printing Implicit Defensive.
 Notation "x ..1" := (projT1 x) (at level 2).
 Notation "x ..2" := (projT2 x) (at level 2).
 Notation "x ,Σ y" := (existT _ x y)  (at level 70).
+(* Heteregoneous equality that we use systematically *)
 Notation "x ≅ y" := (JMeq  x  y) (at level 70, y at next level, no associativity).
 
-Ltac etrans := eapply trans_eq.
-
-Definition is_center (A : Type) (a : A) :=
-  forall ( a' : A),  a' = a.
 Lemma transport (A : Type) (x : A) (P : A -> Type) (y : A)(e : x = y)  (Px : P x) : P y.
 Proof.
   apply:eq_rect e => //=.
 Defined.
+
+(* Could also be defined this way *)
+Definition JMeq_alt (A : Type) (a : A) (B : Type) (b : B) :=
+  (A ,Σ a) = (B ,Σ b).
+
+Lemma JM_projT2  (A : Type) (P : A -> Type) (a b : {x : A & P x})
+      (e : a = b) : a..2 ≅ b..2.
+Proof.
+  now destruct e.
+Qed.
+
+(* JMeq is not stronger than JMeq_alt. (actually they are equivalent) *)
+Lemma JMeq_alt_JMeq (A : Type) (a : A) (B : Type) (b : B) (e : JMeq_alt a b) :  a ≅ b.
+  apply:(JM_projT2 e).
+Defined.
+
+Lemma JMeq_JMeq_alt (A : Type) (a : A) (B : Type) (b : B) (e : JMeq a b) : JMeq_alt a b.
+  now destruct e.
+Defined.
+
+(* We require funext, although we believe it is possible to avoid it in our
+current formalization  *)
+Axiom funext : forall (A : Type) (B : A -> Type) (f g : forall a, B a),
+    (forall a, f a = g a) -> f = g.
+
+(* The following axiom that we use is equivalent to uip *)
+Check (JMeq_eq : forall (A:Type) (x y:A), x ≅ y -> x = y).
+
+(* uip implies JMeq_eq *)
+Lemma uip_JMeq_eq (uip : forall (A : Type) (x y : A) (e e' : x = y) , e = e') :
+  forall (A:Type) (x y:A), x ≅ y -> x = y.
+Proof.
+  move => A x y.
+  suff h : forall (A B:Type) (y:A) (x:B)(e : A = B), x ≅ y -> x = transport e y.
+  by apply :(h _ _ _ _ erefl).
+  clear -uip.
+  move => A B y x e e'.
+  move:e.
+  destruct e' => e'.
+  by rewrite (uip _ _ _ e' (erefl B)).
+Qed.
+(* No assumption is made here *)
+Print Assumptions uip_JMeq_eq.
+
+(* JMeq_eq implies uip *)
+Lemma uip (A : Type) (x y : A) (e e' : x = y) : e = e'.
+  apply JMeq_eq.
+  destruct e.
+  destruct e'.
+  reflexivity.
+Qed.
+
+Print Assumptions uip.
+
+
+
 Lemma transport2 (A : Type)  (P : A -> Type)(Q : forall (a:A), P a -> Type)
       (x : A) (p : P x)(y : A)(q : P y)(e : x = y)(e' : p ≅ q)  (Px : Q _ p) : Q _ q.
 Proof.
@@ -31,21 +84,18 @@ Proof.
   by destruct e'.
 Defined.
 
+Ltac etrans := eapply trans_eq.
+
+Definition is_center (A : Type) (a : A) :=
+  forall ( a' : A),  a' = a.
+
 (* je le réécris en defined *)
 Lemma JMeq_sym : forall (A B:Type) (x:A) (y:B), JMeq x y -> JMeq y x.
 Proof. 
 intros; destruct H; trivial.
 Defined.
 
-Axiom funext : forall (A : Type) (B : A -> Type) (f g : forall a, B a),
-    (forall a, f a = g a) -> f = g.
 
-Lemma uip (A : Type) (x y : A) (e e' : x =y) : e = e'.
-  apply JMeq_eq.
-  destruct e.
-  destruct e'.
-  reflexivity.
-Qed.
 Lemma JMeq_eq_refl A (x  : A) : JMeq_eq (JMeq_refl (x:=x)) = erefl.
   apply:uip.
   Qed.
@@ -83,11 +133,6 @@ Proof.
   simpl.
   by destruct (JMeq_eq e').
 Qed.
-Lemma JM_projT2  (A : Type) (P : A -> Type) (a b : {x : A & P x})
-      (e : a = b) : a..2 ≅ b..2.
-Proof.
-  now destruct e.
-Qed.
 
 Lemma JMeq_from_eq (A : Type) (x y : A) : x = y -> x ≅ y.
   by destruct 1.
@@ -103,9 +148,6 @@ Ltac clear_jmsigma :=
 
   
 
-Lemma JMeq_eq_r  (A : Type) (x y : A) : x = y -> x ≅ y.
-now destruct 1.
-Qed.
 
 Lemma JMeq_congr3 (A : Type) (B : A -> Type)(D: Type) (C : forall a : A, B a -> D)
       (x x' : A) (b : B x) (b'  : B x') : x = x' -> b ≅ b' -> C x b = C x' b'.
