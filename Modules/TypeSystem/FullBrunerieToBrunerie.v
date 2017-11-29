@@ -1,7 +1,7 @@
 (* We make a translation from full brunerie (any ctx) to brunerie *)
 Require Import ssreflect ssrfun ssrbool .
 
-From Modules Require Import libhomot untypeduippackrl buildrlhp lib PreSyntaxOnlyContr .
+From Modules Require Import libhomot untypeduippackrl TypesAreOmegaGroupoids.FunctionalRelation lib PreSyntaxOnlyContr .
 From Modules Require Import WfSyntaxBrunerieOnlyContr.
 (* gtypeext omegagroupoids fullomegagroupoids. *)
 From Modules Require Import WfSyntaxBrunerieAllCtx.

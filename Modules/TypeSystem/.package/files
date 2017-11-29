@@ -4,10 +4,10 @@ Syntax.v
 PreSyntaxOnlyContr.v
 WfSyntaxBrunerieOnlyContr.v
 untypeduippackrl.v
-buildrlhp.v
+TypesAreOmegaGroupoids/FunctionalRelation.v
 gtypeext.v
 omegagroupoids.v
-TypeOmegaGroupoid.v
+TypesAreOmegaGroupoids/TypesAreOmegaGroupoids.v
 WfSyntaxEricSamOnlyPs.v
 omegacategories.v
 OmegaGroupoidCat.v
