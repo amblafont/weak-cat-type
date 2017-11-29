@@ -14,194 +14,28 @@ Set Bullet Behavior "Strict Subproofs".
 
 
 
-(*
-Inductive Tm : Type :=
-  | va (x:Var)
-          (* Coh Γ A σ  *)
-  | coh : Con -> Ty -> sub -> Tm
-with Ty : Type :=
-  | star
-  | ar : Ty -> Tm -> Tm -> Ty
-with  Con : Type :=
-      | astar
-          (* Γ A, u tq Γ ⊢ u : A *)
-      | ext : Con -> Ty -> Tm -> Con
-with sub : Type :=
-       | to_star : Tm -> sub
-       | to_ext : sub -> Tm -> Tm -> sub
-with Var : Type :=
-  | vstar
-  (* toutes ces variables sont dans des contextes étendues *)
-  | vwk (v : Var)
-  | v0 
-  | v1 .
-*)
 
 
-(*
-Fixpoint sub_Var (σ : sub) (x : Var) : Tm :=
-   match σ,x with
-     to_star t, vstar => t
-   | to_ext σ a f, vwk x => x .[ σ ]V
-   | to_ext σ a f, v0 => f
-   | to_ext σ a f, v1 => a
-   | _,_ => va vstar (* dummy *)
-   end
-where "s .[ sigma ]V" := (sub_Var sigma s) : subst_scope.
 
 
-Fixpoint sub_Tm (σ : sub) (t : Tm) : Tm :=
-  match t with
-  | va x => x .[ σ ]V
-          (* Coh Γ A σ  *)
-  | coh Γ A δ => coh Γ A (δ ∘ σ)
-  end
-    (*
-Γ ⊢ σ : Δ
-E ⊢ δ : Γ
-E ⊢ σ ∘ δ : Δ
-     *)
-with compS (σ : sub) (δ : sub) : sub :=
-       match σ with
-         | to_star t => to_star (t .[ δ ]t)
-         (* Γ ⊢ σ' : Δ' *)
-         (* E ⊢ σ ∘ δ : Δ *)
-         (* E ⊢ (σ ∘ δ)' : Δ' *)
-         | to_ext σ a f => to_ext (σ ∘ δ) (a .[ δ ]t) (f .[ δ ]t)
-       end
-where "s .[ sigma ]t" := (sub_Tm sigma s) : subst_scope
-  and "sigma ∘ delta" := (compS sigma delta) :subst_scope.
-
-
-(* Γ ⊢ idS : Γ *)
-Fixpoint idS (Γ : Con) : sub :=
-  match Γ with
-    astar => to_star (va vstar)
-  | ext Γ A u => to_ext (idS Γ) (va v1) (va v0)
-  end.
-
-
-Fixpoint wkt (t : Tm) : Tm :=
-  match t with
-    va x => va (vwk x)
-  | coh Γ A σ => coh Γ A (wkS σ)
-  end
-with wkS (σ : sub) : sub :=
-  match σ with
-  | to_star t => to_star (wkt t)
-  | to_ext σ a f => to_ext (wkS σ) (wkt a) (wkt f)
-  end.
-
-Fixpoint wkT (A : Ty) : Ty :=
-  match A with
-    star => star
-  | ar A t u => ar (wkT A) (wkt t) (wkt u)
-  end.
-
-
-Open Scope subst_scope.
-
-
-Fixpoint sub_Ty (σ : sub) (A : Ty) : Ty :=
-  match A with
-    star => star
-  | ar A t u => ar (A .[ σ ]T) (t .[ σ ]t) (u .[ σ ]t)
-  end
-    where "s .[ sigma ]T" := (sub_Ty sigma s) : subst_scope.
-
-
-Definition sub_oTy (σ : sub) (A : option Ty) : option Ty :=
-  if A is Some A then Some (A .[ σ ]T) else None.
-
-Notation "s .[ σ ]oT" := (sub_oTy σ s) : subst_scope.
-
-  
-(*
-Fixpoint beq_var ( x y : Var) : bool :=
-  match x,y with
-    vstar,vstar => true
-  | vwk v, vwk v' => beq_var v v'
-  | v0,v0 => true
-  | v1, v1 => true
-  | _,_ => false
-  end.
-  
-Fixpoint beq_tm (x y : Tm) : bool :=
-        (match x,y with
-       | va x, va x' => beq_var x x'
-       | coh Γ A σ, coh Γ' A' σ' => [ && beq_Con Γ Γ' , beq_Ty A A' & beq_sub σ σ' ]
-       | _,_ => false
-         end)
-with beq_Ty (x y : Ty) :=
-       (
-       match x,y with
-       | star, star => true
-       | ar A t u, ar A' t' u' =>
-         [ && beq_Ty A A' , beq_tm t t' & beq_tm u u' ]
-       (* | none,none => true *)
-       | _,_ => false
-
-       end)
-with beq_Con (x y : Con) :   bool :=
-      (match x , y with
-  | astar, astar => true
-  | ext Γ A u, ext Γ' A' u' => [ && beq_Con Γ Γ' , beq_Ty A A' & beq_tm u u' ]
-  | _,_ => false
-     end)
-with beq_sub (x y : sub) :   bool :=
-  (match x , y with
-      | to_star t, to_star t' => beq_tm t t'
-      | to_ext σ a f, to_ext σ' a' f' => [ && beq_sub σ σ' , beq_tm a a' & beq_tm f f']
-        | _,_ => false
-        end).
-
-*)
-(*
-Definition Var_eqP : Equality.axiom beq_var.
-Admitted.
-Definition tm_eqP : Equality.axiom beq_tm.
-Admitted.
-Definition Ty_eqP : Equality.axiom beq_Ty.
-Admitted.
-Definition sub_eqP : Equality.axiom beq_sub.
-Admitted.
-Definition Con_eqP : Equality.axiom beq_Con.
-Admitted.
-
-Canonical var_eqMixin := EqMixin Var_eqP.
-Canonical var_eqType := Eval hnf in EqType Var var_eqMixin.
-
-Canonical tm_eqMixin := EqMixin tm_eqP.
-Canonical tm_eqType := Eval hnf in EqType Tm tm_eqMixin.
-
-Canonical Ty_eqMixin := EqMixin Ty_eqP.
-Canonical Ty_eqType := Eval hnf in EqType Ty Ty_eqMixin.
-
-Canonical sub_eqMixin := EqMixin sub_eqP.
-Canonical sub_eqType := Eval hnf in EqType sub sub_eqMixin.
-
-Canonical Con_eqMixin := EqMixin Con_eqP.
-Canonical Con_eqType := Eval hnf in EqType Con Con_eqMixin.
-
-*)
-*)
 
 (* La version inductive *)
 Inductive WVar : Con -> Ty -> Var -> Type :=
-  w_vstar : WVar astar star vstar
+  w_vstar : WVar x:⋆ ⋆ vstar
 | w_vwk Γ A u B x : WVar Γ B x ->
                  (* Je dois aussi mettre les hypothèses suivantes *)
                     Wtm Γ A u ->
-                    WVar (ext Γ A u) (wkT B) (vwk x)
-| w_v1 Γ A u : Wtm Γ A u -> WVar (ext Γ A u) (wkT A) v1
-| w_v0 Γ A u : Wtm Γ A u -> WVar (ext Γ A u) (ar (wkT A) (va v1) (wkt u)) v0
+                    WVar (Γ ,C A , #0 → u) (wkT B) (vwk x)
+| w_v1 Γ A u : Wtm Γ A u -> WVar (Γ ,C A , #0 → u) (wkT A) v1
+| w_v0 Γ A u : Wtm Γ A u -> WVar (Γ ,C A , #0 → u)
+                                ((va v1) →⟨ wkT A ⟩ (wkt u)) v0
 
 with WC : Con -> Type :=
-  w_astar : WC astar
-| w_ext Γ A u : WC Γ -> WTy Γ A ->  Wtm Γ A u -> WC (ext Γ A u)
+  w_astar : WC x:⋆
+| w_ext Γ A u : WC Γ -> WTy Γ A ->  Wtm Γ A u -> WC (Γ ,C A , #0 → u)
 with WTy : Con -> Ty -> Type :=
-       | w_star Γ : WC Γ -> WTy Γ star
-       | w_ar Γ A t u : WTy Γ A -> Wtm Γ A t -> Wtm Γ A u -> WTy Γ (ar A t u)
+       | w_star Γ : WC Γ -> WTy Γ ⋆
+       | w_ar Γ A t u : WTy Γ A -> Wtm Γ A t -> Wtm Γ A u -> WTy Γ (t →⟨A⟩ u)
 with Wtm : Con -> Ty -> Tm -> Type :=
        | w_va Γ A x : WVar Γ A x -> Wtm Γ A (va x)
        | w_coh Γ Δ A σ : WC Δ -> WTy Δ A -> WS Γ Δ σ ->  
@@ -210,16 +44,16 @@ with Wtm : Con -> Ty -> Tm -> Type :=
                          (* WTy Γ A.[σ]T  -> *)
                          Wtm Γ A.[σ]T (coh Δ A σ) 
 with WS : Con -> Con -> sub -> Type :=
-     | w_to_star Γ t : Wtm Γ star t -> WS Γ astar (to_star t)
+     | w_to_star Γ t : Wtm Γ ⋆ t -> WS Γ x:⋆ ❪ t ❫
      | w_to_ext Γ A u Δ σ t f : WS Γ Δ σ ->
                                 WTy Δ A ->
                                 Wtm Δ A u ->
                                 Wtm Γ A.[σ]T t ->
-                                Wtm Γ (ar (A.[ σ ]T) t (u.[σ]t)) f ->
-                                WS Γ (ext Δ A u) (to_ext σ t f).
+                                Wtm Γ (t →⟨ A.[ σ ]T ⟩  u.[σ]t) f ->
+                                WS Γ (Δ ,C A , #0 → u) (σ ,S t , f).
 
 
-Instance syntax : Syntax := Build_Syntax WC WTy Wtm WS.
+Instance syntax : Syntax preSyntax := Build_Syntax WC WTy Wtm WS.
 
 Notation "Gamma ⊢_v s : A" := (WVar Gamma A s) : wf_scope.
 

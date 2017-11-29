@@ -14,7 +14,7 @@ with Ty : Type :=
   | ar : Ty -> Tm -> Tm -> Ty
 with  Con : Type :=
       | astar
-          (* Γ A, u tq Γ ⊢ u : A *)
+          (* Γ , x : A, f : x → u is encoded as ext Γ A u *)
       | ext : Con -> Ty -> Tm -> Con
 with sub : Type :=
        | to_star : Tm -> sub
@@ -25,6 +25,20 @@ with Var : Type :=
   | vwk (v : Var)
   | v0 
   | v1 .
+
+Notation "x:⋆" := astar : presyntax_scope.
+Notation " Gamma ,C B , #0 → u " := (ext Gamma B u) (at level 68, B at level 58)
+                                   : presyntax_scope.
+
+Notation "⋆" := star : presyntax_scope.
+Notation "x →⟨ B ⟩ y" := (ar B x y)  (at level 68, B at level 58) : presyntax_scope.
+
+Notation "❪ t ❫" := (to_star t)   : subst_scope.
+Notation " Gamma ,S a  , f" := (to_ext Gamma a f) (at level 68, a at level 58)
+                               : presyntax_scope.
+
+Delimit Scope presyntax_scope with Pre.
+Open Scope presyntax_scope.
 
 Module S := defsyntax.
 
@@ -75,7 +89,7 @@ Reserved Notation "s .[ sigma ]V" (at level 2, sigma at level 200, left associat
 *)
 
 Fixpoint sub_Var (σ : sub) (x : Var) : Tm :=
-   match σ,x with
+   match σ , x with
      to_star t, vstar => t
    | to_ext σ a f, vwk x => x .[ σ ]V
    | to_ext σ a f, v0 => f

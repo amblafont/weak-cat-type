@@ -14,7 +14,7 @@ CoInductive GType :=
 
 Notation "∣ A ∣" := (ob A) (at level 99).
 
-Class Decl {P : PreSyntax} {S : Syntax} :=
+Class Decl {P : PreSyntax} {S : Syntax P} :=
   { dC : forall Γ, WC Γ -> Type;
     dTy : forall Γ A (wΓ : WC Γ)(wA: Γ ⊢ A), dC wΓ -> GType ;
     dTm : forall Γ A t (wΓ : WC Γ)(wt : Γ ⊢ t : A)(wA: Γ ⊢ A)(γ : dC wΓ) ,
@@ -23,8 +23,6 @@ Class Decl {P : PreSyntax} {S : Syntax} :=
             dC wΔ
   }.
 
-Definition extΣ (Γ : Type) (A : Γ -> Type) (B : forall γ (a : A γ), Type) :=
-  { δ : { γ : Γ & A γ} & B (δ..1) δ..2}.
 
 Definition extΣ_G (Γ : Type) (A : Γ -> GType) (u : forall γ, ∣ A γ ∣) :=
   { δ : { γ : Γ & ∣ A γ ∣ } & ∣ hom δ..2 (u δ..1) ∣ }.

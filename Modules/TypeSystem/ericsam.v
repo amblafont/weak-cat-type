@@ -248,7 +248,7 @@ with WS : Con -> Con -> sub -> Type :=
                                 WS Γ (ext Δ A u) (to_ext σ t f).
 
 
-Instance syntax : Syntax := Build_Syntax WC WTy Wtm WS.
+Instance syntax : Syntax preSyntax := Build_Syntax WC WTy Wtm WS.
 Reserved Notation "Gamma ⊢_ps A : B"
   (at level 68, A at level 99, no associativity,
    format "Gamma  ⊢_ps  A  :  B").

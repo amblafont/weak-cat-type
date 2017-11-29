@@ -10,7 +10,7 @@ Class PreSyntax  :=
     Tm : Type;
     sub : Type;
     }.
-Class Syntax {S : PreSyntax} :=
+Class Syntax (S : PreSyntax) :=
   {
     WC : Con -> Type;
     WTy : Con -> Ty -> Type;
