@@ -1,5 +1,5 @@
-From Modules Require Import defsyntax.
-From Modules Require Export defsyntax.
+From Modules Require Import Syntax.
+From Modules Require Export Syntax.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -40,7 +40,7 @@ Notation " Gamma ,S a  , f" := (to_ext Gamma a f) (at level 68, a at level 58)
 Delimit Scope presyntax_scope with Pre.
 Open Scope presyntax_scope.
 
-Module S := defsyntax.
+Module S := Syntax.
 
 Instance preSyntax : PreSyntax := {| S.Con := Con ;  S.Ty := Ty ; S.Tm := Tm ; S.sub := sub |}.
 

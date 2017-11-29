@@ -9,12 +9,12 @@ Unset Printing Implicit Defensive.
 Require Import EqdepFacts.
 Require Import Coq.Logic.JMeq.
 Require Import ssreflect ssrfun ssrbool .
-From Modules Require Import lib libhomot defsyntax.
+From Modules Require Import lib libhomot Syntax.
 
 Set Bullet Behavior "Strict Subproofs".
 
 
-Module Syn := defsyntax.
+Module Syn := Syntax.
 
 Inductive Tm : Type :=
   | va (x:Var)

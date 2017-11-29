@@ -1,6 +1,6 @@
 Require Import ssreflect ssrfun ssrbool .
 
-From Modules Require Import defsyntax libhomot lib.
+From Modules Require Import Syntax libhomot lib.
 Require Import Coq.Logic.JMeq.
 Set Bullet Behavior "Strict Subproofs".
 

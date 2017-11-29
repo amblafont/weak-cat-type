@@ -2,7 +2,7 @@
 (* an omega groupoid is an omega cat *)
 Require Import ssreflect ssrfun ssrbool .
 
-From Modules Require Import libhomot untypeduippackrl buildrlhp lib defsyntax brunerietype gtypeext omegagroupoids fullomegagroupoids fullbrunerietype.
+From Modules Require Import libhomot untypeduippackrl buildrlhp lib Syntax WfSyntaxBrunerieOnlyContr gtypeext omegagroupoids fullomegagroupoids WfSyntaxBrunerieAllCtx.
 Require Import Coq.Logic.JMeq.
 Set Bullet Behavior "Strict Subproofs".
 
@@ -12,13 +12,13 @@ Unset Printing Implicit Defensive.
 
 Local Notation "⟦ X ⟧V" := (dTm (w_va X)).
 
-Module B := brunerietype.
-Module FB := fullbrunerietype.
+Module B := WfSyntaxBrunerieOnlyContr.
+Module FB := WfSyntaxBrunerieAllCtx.
 
 Local Notation SB := (B.syntax).
 Local Notation SF := (FB.syntax).
 
-Module Syn := defsyntax.
+Module Syn := Syntax.
 Local Notation "'WC' S" := (@Syn.WC _ S) (at level 0).
 Local Notation "'WTy' S" := (@Syn.WTy _ S)(at level 0).
 Local Notation "'Wtm' S":= (@Syn.Wtm _ S)(at level 0).
@@ -29,8 +29,8 @@ Local Notation "'SB_WVar' S":= (B.WVar S)(at level 0).
 Local Notation WTy := (@Syn.WTy _).
 Local Notation Wtm := (@Syn.Wtm _).
 Local Notation WS := (@Syn.WS _).
-Local Notation SC_WVar := (ericsam.WVar).
-Local Notation SB_WVar := (brunerietype.WVar).
+Local Notation SC_WVar := (WfSyntaxEricSamOnlyPs.WVar).
+Local Notation SB_WVar := (WfSyntaxBrunerieOnlyContr.WVar).
 *)
 
 (*
@@ -159,7 +159,7 @@ Section GroupoidToCat.
       dTy := fun (Γ : Con) (A : Ty) (wΓ : Syn.WC Γ) (wA : Γ ⊢ A) => ⟦ wCB_T wA ⟧T;
       dTm := fun (Γ : Con) (A : Ty) (t : Tm) (wΓ : Syn.WC Γ) (wt : Γ ⊢ t : A) (wA : Γ ⊢ A) =>
                ⟦ wCB_Tm wt ⟧t (wCB_T wA);
-      dS := fun (Γ Δ : Con) (σ : sub) (wσ : ericsam.WS Γ Δ σ) (wΓ : ericsam.WC Γ) (wΔ : ericsam.WC Δ) =>
+      dS := fun (Γ Δ : Con) (σ : sub) (wσ : WfSyntaxEricSamOnlyPs.WS Γ Δ σ) (wΓ : WfSyntaxEricSamOnlyPs.WC Γ) (wΔ : WfSyntaxEricSamOnlyPs.WC Δ) =>
               ⟦ wCB_S wσ ⟧S (wCB_C wΓ)(wCB_C wΔ) |}.
 
   Import omegagroupoids.

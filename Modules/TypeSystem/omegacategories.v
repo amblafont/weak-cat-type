@@ -1,6 +1,6 @@
 Require Import ssreflect ssrfun ssrbool .
 
-From Modules Require Import libhomot untypeduippackrl buildrlhp lib gensyntax ericsam gtypeext.
+From Modules Require Import libhomot untypeduippackrl buildrlhp lib PreSyntaxOnlyContr WfSyntaxEricSamOnlyPs gtypeext.
 Require Import Coq.Logic.JMeq.
 Set Bullet Behavior "Strict Subproofs".
 

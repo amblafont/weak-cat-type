@@ -3,7 +3,7 @@
 Require Import ssreflect ssrfun ssrbool .
 
 Require Import Coq.Logic.JMeq.
-From Modules Require Import gensyntax libhomot lib brunerietype untypeduippackrl.
+From Modules Require Import PreSyntaxOnlyContr libhomot lib WfSyntaxBrunerieOnlyContr untypeduippackrl.
 Set Bullet Behavior "Strict Subproofs".
 
 Set Implicit Arguments.
@@ -294,9 +294,9 @@ with semS (Γ Δ : Con)  (σ : sub)
       -- exact:(ft_rT IHu).
   + rename w into wu.
     inversion wΓ; subst.
-    rename H3 into wA'.
-    rename H2 into wΓ'.
-    clear H4.
+    rename X0 into wA'.
+    rename X into wΓ'.
+    clear X1.
     move/semt:(wu).
     move/(_ wΓ' wA') => IHu.
     have e : wΓ = w_ext wΓ' wA' wu by apply:WC_hp.
@@ -304,8 +304,8 @@ with semS (Γ Δ : Con)  (σ : sub)
     have ru := ft_r IHu.
 
     inversion wA; subst.
-    rename H3 into wAe.
-    rename H5 into wue.
+    rename X into wAe.
+    rename X1 into wue.
     have e : wA = w_ar wAe (w_va (w_v1 wu)) wue by apply:WTy_hp.
     subst.
     (* have r :  rl_C fibT wΓ' (ft_C IHu) *)

@@ -26,12 +26,12 @@ TODO :  remplacer la r_gle Γ,x:A ⊢ en prémisse par Γ ⊢ A
 Require Import EqdepFacts.
 Require Import Coq.Logic.JMeq.
 Require Import ssreflect ssrfun ssrbool .
-From Modules Require Import libhomot lib gensyntax brunerietype .
+From Modules Require Import libhomot lib PreSyntaxOnlyContr WfSyntaxBrunerieOnlyContr .
 (* From mathcomp Require Import ssreflect ssrfun ssrbool eqtype ssrnat seq. *)
 Set Bullet Behavior "Strict Subproofs".
 
 
-Module Syn := defsyntax.
+Module Syn := Syntax.
 
 
 (* sinon je ne peux plus faire de ltac
@@ -1704,9 +1704,9 @@ with rl_wkS
     subst sB.
     simpl in wBe.
     inversion wBe; subst.
-    rename H3 into wA0e.
-    rename H4 into wte.
-    rename H5 into wue.
+    rename X into wA0e.
+    rename X0 into wte.
+    rename X1 into wue.
     have e : wBe = w_ar wA0e wte wue by apply:WTy_hp.
     subst.
     move/rl_wkT:(rB) ;  move/(_ wA0e) =>  IHB.     
