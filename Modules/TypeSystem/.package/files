@@ -3,10 +3,11 @@ lib.v
 Syntax.v
 PreSyntaxOnlyContr.v
 WfSyntaxBrunerieOnlyContr.v
-untypeduippackrl.v
-TypesAreOmegaGroupoids/FunctionalRelation.v
-gtypeext.v
+gtype.v
+decl.v
 omegagroupoids.v
+TypesAreOmegaGroupoids/FunctionalRelation.v
+TypesAreOmegaGroupoids/InhabitRelation.v
 TypesAreOmegaGroupoids/TypesAreOmegaGroupoids.v
 WfSyntaxEricSamOnlyPs.v
 omegacategories.v

@@ -1,6 +1,6 @@
 Require Import ssreflect ssrfun ssrbool .
 
-From Modules Require Import libhomot   lib PreSyntaxOnlyContr WfSyntaxBrunerieOnlyContr gtypeext.
+From Modules Require Import libhomot   lib PreSyntaxOnlyContr WfSyntaxBrunerieOnlyContr gtype decl.
 Require Import Coq.Logic.JMeq.
 Set Bullet Behavior "Strict Subproofs".
 

@@ -3,7 +3,7 @@ Require Import ssreflect ssrfun ssrbool .
 
 From Modules Require Import libhomot untypeduippackrl TypesAreOmegaGroupoids.FunctionalRelation lib PreSyntaxOnlyContr .
 From Modules Require Import WfSyntaxBrunerieOnlyContr.
-(* gtypeext omegagroupoids fullomegagroupoids. *)
+(* gtype decl omegagroupoids fullomegagroupoids. *)
 From Modules Require Import WfSyntaxBrunerieAllCtx.
 Require Import Coq.Logic.JMeq.
 Set Bullet Behavior "Strict Subproofs".

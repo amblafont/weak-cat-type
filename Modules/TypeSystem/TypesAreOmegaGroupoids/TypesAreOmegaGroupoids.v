@@ -1,6 +1,6 @@
 Require Import ssreflect ssrfun ssrbool .
 
-From Modules Require Import libhomot untypeduippackrl FunctionalRelation lib PreSyntaxOnlyContr WfSyntaxBrunerieOnlyContr gtypeext omegagroupoids.
+From Modules Require Import libhomot FunctionalRelation InhabitRelation lib PreSyntaxOnlyContr WfSyntaxBrunerieOnlyContr gtype decl omegagroupoids.
 Require Import Coq.Logic.JMeq.
 Set Bullet Behavior "Strict Subproofs".
 
