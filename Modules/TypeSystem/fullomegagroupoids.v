@@ -2,8 +2,7 @@ Require Import ssreflect ssrfun ssrbool .
 (* Definition selon Brunerie : on a tous les contextes.
 Selon moi, c'est plus éloigné de la définition mathématique de Maltsioniotis mais bon.. *)
 
-From Modules Require Import libhomot untypeduippackrl TypesAreOmegaGroupoids.FunctionalRelation lib Syntax WfSyntaxBrunerieAllCtx gtype decl.
-Require Import Coq.Logic.JMeq.
+From Modules Require Import HomotopicalEquality untypeduippackrl TypesAreOmegaGroupoids.FunctionalRelation lib Syntax WfSyntaxBrunerieAllCtx gtype decl.
 Set Bullet Behavior "Strict Subproofs".
 
 Set Implicit Arguments.

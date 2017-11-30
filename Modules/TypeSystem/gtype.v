@@ -1,7 +1,6 @@
 Require Import ssreflect ssrfun ssrbool .
 
-From Modules Require Import Syntax libhomot lib.
-Require Import Coq.Logic.JMeq.
+From Modules Require Import Syntax HomotopicalEquality lib.
 Set Bullet Behavior "Strict Subproofs".
 
 Set Implicit Arguments.

@@ -5,10 +5,8 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
-Require Import EqdepFacts.
-Require Import Coq.Logic.JMeq.
 Require Import ssreflect ssrfun ssrbool .
-From Modules Require Import lib libhomot PreSyntaxOnlyContr Syntax.
+From Modules Require Import lib HomotopicalEquality PreSyntaxOnlyContr Syntax.
 
 Set Bullet Behavior "Strict Subproofs".
 

@@ -1,7 +1,6 @@
 Require Import ssreflect ssrfun ssrbool .
 
-From Modules Require Import libhomot FunctionalRelation InhabitRelation lib PreSyntaxOnlyContr WfSyntaxBrunerieOnlyContr gtype decl omegagroupoids.
-Require Import Coq.Logic.JMeq.
+From Modules Require Import HomotopicalEquality FunctionalRelation InhabitRelation lib PreSyntaxOnlyContr WfSyntaxBrunerieOnlyContr gtype decl omegagroupoids.
 Set Bullet Behavior "Strict Subproofs".
 
 Set Implicit Arguments.
@@ -232,10 +231,10 @@ Lemma type_is_omega (T : Type) (fibT : Fib T) : isOmegaGroupoid (G_of_T T) (typD
     have H' := JMeq_eq H.
     cbn.
     subst.
-    clear H'.
+    (* clear H'. *)
      repeat (apply JM_projT2,JMeq_eq in H10; simpl in H10).
      repeat clear_hprop; repeat (clear_jmsigma; subst).
-     constructor.
+     apply:JMeq_refl.
   - move => Γ A u wΓ wA wu wAe wue.
     cbn -[semT semC semt semS].
     move :(semC _ _) => fΓe.
@@ -267,10 +266,10 @@ Lemma type_is_omega (T : Type) (fibT : Fib T) : isOmegaGroupoid (G_of_T T) (typD
     have H' := JMeq_eq H.
     cbn.
     subst.
-    clear H'.
+    (* clear H'. *)
      repeat (apply JM_projT2,JMeq_eq in H10; simpl in H10).
      repeat clear_hprop; repeat (clear_jmsigma; subst).
-     constructor.
+     apply:JMeq_refl.
   - move =>  Γ A u B x wΓ wA wu wB wBe wx.
     cbn -[semT semC semt semS].
     move :(semC _ _) => fΓe.

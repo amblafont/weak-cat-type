@@ -2,8 +2,7 @@
 (* an omega groupoid is an omega cat *)
 Require Import ssreflect ssrfun ssrbool .
 
-From Modules Require Import libhomot untypeduippackrl TypesAreOmegaGroupoids.FunctionalRelation lib Syntax WfSyntaxBrunerieOnlyContr gtype decl omegagroupoids fullomegagroupoids WfSyntaxBrunerieAllCtx.
-Require Import Coq.Logic.JMeq.
+From Modules Require Import HomotopicalEquality untypeduippackrl TypesAreOmegaGroupoids.FunctionalRelation lib Syntax WfSyntaxBrunerieOnlyContr gtype decl omegagroupoids fullomegagroupoids WfSyntaxBrunerieAllCtx.
 Set Bullet Behavior "Strict Subproofs".
 
 Set Implicit Arguments.

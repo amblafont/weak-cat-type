@@ -2,8 +2,7 @@
 (* -*- coq-prog-name: "coqtop"; -*- *)
 Require Import ssreflect ssrfun ssrbool .
 
-Require Import Coq.Logic.JMeq.
-From Modules Require Import PreSyntaxOnlyContr libhomot lib WfSyntaxBrunerieOnlyContr FunctionalRelation.
+From Modules Require Import PreSyntaxOnlyContr HomotopicalEquality lib WfSyntaxBrunerieOnlyContr FunctionalRelation.
 Set Bullet Behavior "Strict Subproofs".
 
 Set Implicit Arguments.
@@ -255,7 +254,7 @@ with semS (Γ Δ : Con)  (σ : sub)
       cbn.
       intros.
       cbn.
-      rewrite JMeq_eq_refl.
+      erewrite (uip (uip _ _ ) erefl) .
       reflexivity.
     }
 

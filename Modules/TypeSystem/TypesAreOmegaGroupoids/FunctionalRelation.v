@@ -6,7 +6,7 @@ Le type des champs correspond aux énoncés des lemmes de la preuve Guillaume Br
 (* ici on n'utilise pas autosubst qui de toute manière ne marche pas pour
 les types mutuellement inductifs *)
 (* Je pack les interprétations dans un record pour la relation fonctionnelle *)
-(* coqc -q -Q "WeakOmegaCat" WeakOmegaCat WeakOmegaCat/TypeSystem/libhomot.v *)
+(* coqc -q -Q "WeakOmegaCat" WeakOmegaCat WeakOmegaCat/TypeSystem/HomotopicalEquality.v *)
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -23,10 +23,8 @@ TODO :  remplacer la r_gle Γ,x:A ⊢ en prémisse par Γ ⊢ A
 
 
 
-Require Import EqdepFacts.
-Require Import Coq.Logic.JMeq.
 Require Import ssreflect ssrfun ssrbool .
-From Modules Require Import libhomot lib PreSyntaxOnlyContr WfSyntaxBrunerieOnlyContr .
+From Modules Require Import HomotopicalEquality lib PreSyntaxOnlyContr WfSyntaxBrunerieOnlyContr .
 (* From mathcomp Require Import ssreflect ssrfun ssrbool eqtype ssrnat seq. *)
 Set Bullet Behavior "Strict Subproofs".
 
@@ -73,7 +71,6 @@ Record omega_groupoid :=
                 (γ : s_C wΓ), s_T wA γ }.
 *)
 
-(* Require Import Coq.Logic.JMeq. *)
 
 (* Notation "x ≅ y" := (eq_dep x y)  (at level 70). *)
 
@@ -142,7 +139,7 @@ Lemma rCeq (x y : rC)
     apply:eidA.
   }
   subst.
-  clear e.
+  (* clear e. *)
   have e: JA0 = JA1.
   {
     (* repeat (apply:funext ; intros). *)
@@ -151,12 +148,13 @@ Lemma rCeq (x y : rC)
     now apply:eJA.
   }
   subst.
-  clear e.
+  (* clear e. *)
   have e: JA_idA0 = JA_idA1.
   {
     repeat (apply:funext ; intros).
     apply:uip.
   }
+  apply JMeq_eq in ef.
   now subst.
   Qed.
 
@@ -201,7 +199,7 @@ Lemma rTeq (C C' : rC) (x : rT C) (y : rT C') :
     auto.
   }
   subst.
-  reflexivity.
+  apply :JMeq_refl.
 
 Qed.
 
@@ -226,7 +224,7 @@ Lemma rSeq (C C' D D' : rC) (x : rS C D) (y : rS C' D') :
     apply:uip.
   }
   subst.
-  reflexivity.
+  apply:JMeq_refl.
 Qed.
 
 
@@ -1015,7 +1013,8 @@ Lemma pt_eq1 (Γ : rC) (A A' : rT Γ) (x : rtm A) (x' : rtm A')
   apply : pt_eq => //=.
   - by apply:JMeq_from_eq.
   - rewrite -ex.
-    symmetry.
+    apply:JMeq_sym.
+    (* symmetry. *)
     apply:JMeq_eq_rect.
 Qed.
 Lemma pS_eq1 (Γ Δ Δ' : rC)  (x  : rS Γ Δ) (x'  : rS Γ Δ') 
@@ -1095,7 +1094,8 @@ Proof.
       set e := (e in eq_rect_r _ _ e).
                apply:(JMeq_eq_rect_r _ e).
     }
-    symmetry.
+    apply:JMeq_sym.
+    (* symmetry. *)
     apply:(JMeq_eq_rect_r _ ).
   * by move => γ γ' /(@JMeq_eq _ _ _) -> //.
 Qed.
@@ -1149,7 +1149,8 @@ Proof.
     apply:JMeq_trans; first by apply:JMeq_eq_rect_r.
     apply:JMeq_trans; first by apply:JMeq_eq_rect_r.
     apply:JMeq_trans; first by apply:JMeq_eq_rect_r.
-    symmetry.
+    apply:JMeq_sym.
+    (* symmetry. *)
     apply:JMeq_trans; first by apply:JMeq_eq_rect_r.
     apply:JMeq_trans; first by apply:JMeq_eq_rect_r.
     apply:JMeq_reflh_eq_rect_r.
@@ -1434,7 +1435,8 @@ with rl_sbS (Γ Δ E : Con)   (σ δ : sub)
             }
             apply:JMeq_trans; first by apply:(JMeq_eq_rect_r _ ).
             apply:JMeq_trans; first by apply:(JMeq_eq_rect_r _ ).
-            symmetry.
+            apply:JMeq_sym.
+            (* symmetry. *)
             apply:JMeq_trans; first by apply:(JMeq_eq_rect_r _ ).
             apply:JMeq_trans; first by apply:(JMeq_eq_rect_r _ ).
             now apply:JMeq_trans; first by apply:(JMeq_reflh_eq_rect_r).
@@ -1497,7 +1499,8 @@ with rl_sbS (Γ Δ E : Con)   (σ δ : sub)
       { apply: (@JMeq_congr4 _ _ _ _ (@r_rl_ar _  )).
         - symmetry.
           apply:compr_T.
-        - symmetry.
+        - apply:JMeq_sym.
+          (* symmetry. *)
           apply:JMeq_eq_rect_r.
         - apply:compr_Tm.
       }
@@ -1553,7 +1556,7 @@ with rl_sbS (Γ Δ E : Con)   (σ δ : sub)
         - apply:JMeq_eq_rect.
         - apply:compr_T.
         }
-        constructor.
+        apply:JMeq_refl.
       }
       {
         apply:JMeq_trans; last first.
@@ -1562,12 +1565,12 @@ with rl_sbS (Γ Δ E : Con)   (σ δ : sub)
                             (r_rl_ar
                                (eq_rect (r_sbT sσ (r_sbT sσ0 sA)) rtm (r_sbt sσ sa) (r_sbT (r_sbS sσ sσ0) sA) (esym e))
                                (r_sbt (r_sbS sσ sσ0) su)) (esym eqT)).
-          symmetry.
+          apply:JMeq_sym.
           apply:(JMeq_t_t (t := z) γ'); last first.
           - apply:JMeq_eq_rect.
           - exact:eqT.
         }
-        by constructor.
+        by apply:JMeq_refl.
       }
       (* d'ou viennent tous ces trucs ?? *)
       Unshelve.
@@ -1828,7 +1831,9 @@ r_wk_ar ne marche pas en reflexivity ????? *)
   destruct 1.
   + move/π_eq_pSC:(eσ) => /= ?; subst sΓ0.
     move/π_eq_pSC2:(eσ) => /= ?; subst sΔ.
-    move/π_eq_pS:(eσ) => /= ?; subst sσ.
+    move/π_eq_pS:(eσ) => /= e.
+    apply JMeq_eq in e.
+    subst sσ.
     apply:tp_rS1; last first.
     * apply:rl_to_star.
       -- constructor; eassumption.
@@ -1843,7 +1848,7 @@ r_wk_ar ne marche pas en reflexivity ????? *)
     * reflexivity.
   + move/π_eq_pSC:(eσ) => /= ?; subst sΓ0.
     move/π_eq_pSC2:(eσ) => /= ?; subst sΔ.      
-    move/π_eq_pS:(eσ) => /= ?; subst sσ.          
+    move/π_eq_pS:(eσ) => /= e;apply JMeq_eq in e; subst sσ.          
     rename A0 into B.
     have rTbiz :   rl_T wΓ wAσ {| pT_C := sΓ; pT_T := r_sbT sσ0 sA0 |}.
     {

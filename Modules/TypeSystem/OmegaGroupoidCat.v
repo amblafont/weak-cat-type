@@ -2,8 +2,7 @@
 (* an omega groupoid is an omega cat *)
 Require Import ssreflect ssrfun ssrbool .
 
-From Modules Require Import libhomot lib PreSyntaxOnlyContr WfSyntaxBrunerieOnlyContr gtype decl omegagroupoids omegacategories.
-Require Import Coq.Logic.JMeq.
+From Modules Require Import HomotopicalEquality lib PreSyntaxOnlyContr WfSyntaxBrunerieOnlyContr gtype decl omegagroupoids omegacategories.
 Set Bullet Behavior "Strict Subproofs".
 
 Set Implicit Arguments.

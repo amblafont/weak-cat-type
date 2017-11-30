@@ -1,4 +1,8 @@
-libhomot.v
+lib/Axioms.v
+lib/HomotopicalEquality.v
+lib/jmeq.v
+lib/stuff.v
+lib/jmeqcomplements.v
 lib.v
 Syntax.v
 PreSyntaxOnlyContr.v

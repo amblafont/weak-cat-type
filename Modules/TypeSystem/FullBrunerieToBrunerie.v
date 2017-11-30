@@ -1,11 +1,10 @@
 (* We make a translation from full brunerie (any ctx) to brunerie *)
 Require Import ssreflect ssrfun ssrbool .
 
-From Modules Require Import libhomot untypeduippackrl TypesAreOmegaGroupoids.FunctionalRelation lib PreSyntaxOnlyContr .
+From Modules Require Import HomotopicalEquality untypeduippackrl TypesAreOmegaGroupoids.FunctionalRelation lib PreSyntaxOnlyContr .
 From Modules Require Import WfSyntaxBrunerieOnlyContr.
 (* gtype decl omegagroupoids fullomegagroupoids. *)
 From Modules Require Import WfSyntaxBrunerieAllCtx.
-Require Import Coq.Logic.JMeq.
 Set Bullet Behavior "Strict Subproofs".
 
 Set Implicit Arguments.

@@ -1,7 +1,6 @@
 Require Import ssreflect ssrfun ssrbool .
 
-From Modules Require Import libhomot  lib PreSyntaxOnlyContr WfSyntaxEricSamOnlyPs gtype decl.
-Require Import Coq.Logic.JMeq.
+From Modules Require Import HomotopicalEquality  lib PreSyntaxOnlyContr WfSyntaxEricSamOnlyPs gtype decl.
 Set Bullet Behavior "Strict Subproofs".
 
 Set Implicit Arguments.
