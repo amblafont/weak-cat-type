@@ -101,7 +101,11 @@ Section GroupoidToCat.
 
   Import omegagroupoids.
   Lemma isGroupoid_isCat (G : GType)  (gr : isOmegaGroupoid G d) : isOmegaCategory G d'.
-    constructor.
+    unshelve econstructor.
+    - intros.
+      apply :(dcoh gr).
+    - intros.
+      apply :(dcoh gr).
     - by apply:dC_astar.
     - intros.
       apply:(dC_ext gr).
@@ -111,17 +115,25 @@ Section GroupoidToCat.
       apply:(dT_ar gr).
     - intros.
       simpl.
-      apply:JMeq_trans; last by apply:(sb_dTm gr).
+      apply:JMeq_trans; first by apply:(dcoh_sb gr).
       match goal with
-        [ |- ⟦ ?w1 ⟧t ?w2 γ ≅ ⟦ ?w3 ⟧t ?w4 γ ] =>
-        rewrite (WTm_hp w1 w3) (WTy_hp w2 w4)
+        [ |- ⟦ ?w1 ⟧t ?w2 _ ≅ ⟦ ?w3 ⟧t ?w4 _ ] =>
+        rewrite  (WTy_hp w2 w4)
       end.
       easy.
-    - apply:(dTm_vstar gr).
-    - intros; apply:(dTm_v1 gr).
+    - intros.
+      simpl.
+      apply:JMeq_trans; first by apply:(dcoh_sb gr).
+      match goal with
+        [ |- ⟦ ?w1 ⟧t ?w2 _ ≅ ⟦ ?w3 ⟧t ?w4 _ ] =>
+        rewrite  (WTy_hp w2 w4)(WTm_hp w1 w3)
+      end.
+      easy.
+    - apply:(dV_vstar gr).
+    - intros; apply:(dV_v1 gr).
       eassumption.
-    - intros; apply:(dTm_v0 gr) => //.
-    - intros; apply:(dTm_vwk gr) => //.
+    - intros; apply:(dV_v0 gr) => //.
+    - intros; apply:(dV_vwk gr) => //.
       eassumption.
     - intros;apply:(dS_to_star gr) => //.
     - intros;apply:(dS_to_ext gr) => //.

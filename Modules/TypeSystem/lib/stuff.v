@@ -23,6 +23,21 @@ Ltac etrans := eapply trans_eq.
 Definition is_center (A : Type) (a : A) :=
   forall ( a' : A),  a' = a.
 
+        
+(* Copied from Logic.EqdepFacts *)
+Lemma eq_sigT_sig_eq : forall X P (x1 x2:X) H1 H2, existT P x1 H1 = existT P x2 H2 <->
+                                                   {H:x1=x2 | (eq_rect _ _ H1 _ H) = H2}.
+Proof.
+  intros; split; intro H.
+  - change x2 with (projT1 (existT P x2 H2)).
+    change H2 with (projT2 (existT P x2 H2)) at 5.
+    destruct H. simpl.
+    exists eq_refl.
+    reflexivity.
+  - destruct H as (->,<-).
+    reflexivity.
+Defined.
+
 (*
 (* Could also be defined this way *)
 Definition JMeq_alt (A : Type) (a : A) (B : Type) (b : B) :=

@@ -403,10 +403,15 @@ Definition r_rl_v0  (sΓ : rC) (sA : rT sΓ) (su : rtm sA) :
   reflexivity.
 Defined.
 
+Definition coh_in_ctx (Γ : rC) (A : rT Γ) : forall (γ : C_TY Γ), T_TY A γ :=
+  JA (T_fib A) (iA A) .
+
+
 Definition r_rl_coh (sΓ : rC) (sΔ : rC) (sB : rT sΔ) (sσ : rS sΓ sΔ) : 
   rtm (r_sbT sσ sB).
-  refine ( {| t_t := fun γ : C_TY sΓ =>
-                       (JA (T_fib sB) (iA sB) (S sσ γ) : T_TY (r_sbT sσ sB) _);
+  refine ( {| t_t :=
+                fun (γ : C_TY sΓ) => (coh_in_ctx sB (S sσ γ)
+                                   : T_TY (r_sbT sσ sB) γ);
               eq_iA := _ |}).
   intro a.
   cbn.

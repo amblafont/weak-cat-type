@@ -59,6 +59,16 @@ Record isOmegaGroupoid (G : GType) (d : Decl) :=
         (γ : ⟦ wΓ ⟧C),
         ⟦ w_ar  wA wt wu : Γ ⊢ t →⟨ A ⟩ u   ⟧T γ = hom (⟦ wt ⟧t wA γ)(⟦ wu ⟧t wA γ);
 
+    (* Redondant with dTm : it just ⟦ coh Γ A (id_Γ) ⟧
+      But it saves me some proofs, for exemple that ⟦ id_Γ ⟧ is the identity
+     *)
+    dcoh : forall Γ A (wΓ : Γ ⊢) (wA : Γ ⊢ A) (γ : ⟦ wΓ ⟧C), ∣ ⟦ wA ⟧T γ ∣ ;
+    dcoh_sb : forall Γ Δ σ A (wΓ : Γ ⊢)(wΔ : Δ ⊢)(wA : Γ ⊢ A)(wσ : Δ ⊢ σ ⇒ Γ)
+                (δ : ⟦ wΔ ⟧C),
+        dcoh wA (⟦ wσ ⟧S wΔ wΓ δ)
+        ≅ ⟦ w_coh wΓ wA wσ ⟧t (WTy_sb wΔ wΓ wσ wA : Δ ⊢ A.[σ]T) δ;
+
+
     (* inutile car déjà compris dans la syntaxe non ? *)
     (*
     sb_dT : forall Γ Δ σ A (wΓ : Γ ⊢)(wΔ : Δ ⊢)(wσ: Γ ⊢ σ ⇒ Δ)(wA : Δ ⊢ A)
@@ -70,16 +80,18 @@ Record isOmegaGroupoid (G : GType) (d : Decl) :=
         ⟦ WS_sb wΓ wΔ wσ wδ ⟧S wΓ wE γ = ⟦ wδ ⟧S _ wE (⟦ wσ ⟧S wΓ wΔ γ);
 *)
     (* inutile car déjà compris dans la syntaxe non ? il suffit de l'imposer pour coh en fait *)
+    (*
     sb_dTm : forall Γ Δ σ A t (wΓ : Γ ⊢)(wΔ : Δ ⊢)(wσ: Γ ⊢ σ ⇒ Δ)(wA : Δ ⊢ A)
                (wt : Δ ⊢ t : A)
               (γ : ⟦ wΓ ⟧C),
         ⟦ Wtm_sb wΓ wΔ wσ wt : Γ ⊢ t.[σ]t : A.[σ]T ⟧t
                                         (WTy_sb wΓ wΔ wσ wA : Γ ⊢ A.[σ]T) γ
         ≅ ⟦ wt ⟧t wA (⟦ wσ ⟧S wΓ wΔ γ);
+*)
 
-    dTm_vstar : forall (γ : ⟦ w_astar : x:⋆ ⊢  ⟧C),
+    dV_vstar : forall (γ : ⟦ w_astar : x:⋆ ⊢  ⟧C),
         ⟦ w_vstar : x:⋆ ⊢_v vstar : ⋆ ⟧V (w_star w_astar : x:⋆ ⊢ ⋆) γ ≅ γ;
-    dTm_v1 : forall Γ A u (wΓ : Γ ⊢) (wA : Γ ⊢ A) (wu : Γ ⊢ u : A)
+    dV_v1 : forall Γ A u (wΓ : Γ ⊢) (wA : Γ ⊢ A) (wu : Γ ⊢ u : A)
                (wAe : Γ ,C A, #0 → u ⊢ wkT A)
                (γ : ⟦ w_ext wΓ wA wu : Γ ,C  A , #0 → u ⊢ ⟧C)
                (γ2 : ⟦ wΓ ⟧C) (sa : ∣ ⟦ wA ⟧T γ2 ∣ )
@@ -92,7 +104,7 @@ Record isOmegaGroupoid (G : GType) (d : Decl) :=
                (* { y : ⟦ wΓ⟧C & ⟦wA⟧T y & (⟦ wu ⟧t wA y) }) *)
 
         ⟦ w_v1 wu : Γ ,C  A , #0 → u ⊢_v v1 : _⟧V wAe γ ≅ sa;
-    dTm_v0 : forall Γ A u (wΓ : Γ ⊢) (wA : Γ ⊢ A) (wu : Γ ⊢ u : A)
+    dV_v0 : forall Γ A u (wΓ : Γ ⊢) (wA : Γ ⊢ A) (wu : Γ ⊢ u : A)
                (wAe : Γ ,C  A , #0 → u ⊢ wkT A)
                (wue : Γ ,C A , #0 → u ⊢ wkt u : wkT A)
                (γ : ⟦ w_ext wΓ wA wu : Γ ,C  A , #0 → u ⊢  ⟧C)
@@ -107,7 +119,7 @@ Record isOmegaGroupoid (G : GType) (d : Decl) :=
                          Γ ,C  A , #0 → u ⊢ (va v1) →⟨ wkT A ⟩ (wkt u) 
                      )
                    γ ≅ sf;
-    dTm_vwk : forall Γ A u B x (wΓ : Γ ⊢) (wA : Γ ⊢ A) (wu : Γ ⊢ u : A)
+    dV_vwk : forall Γ A u B x (wΓ : Γ ⊢) (wA : Γ ⊢ A) (wu : Γ ⊢ u : A)
                 (wB : Γ ⊢ B)
                 (wBe : Γ ,C  A , #0 → u ⊢ wkT B)
                 (wx : Γ ⊢_v x :  B )

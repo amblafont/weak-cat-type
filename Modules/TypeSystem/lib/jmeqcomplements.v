@@ -20,30 +20,35 @@ Notation "x ≅ y" := (JMeq  x  y) (at level 70, y at next level, no associativi
 JMeq *)
 (*
 Require Import Coq.Classes.RelationClasses.
+(*
 Impossible de faire marcher ce truc!!!
 TODO: demadner à Gaetan Nicolas ou Matthieu
+*)
 
-Instance Reflexive_JMeq (A : Type) :
-  (Reflexive (A := A) (fun a b => JMeq a b )) := @JMeq_refl A.
+Instance Reflexive_JMeq (A : Type) : Reflexive (fun (x  : A) => @JMeq A x A ).
+intro x.
+apply:JMeq_refl.
+Defined.
+
 
 
 (* Parameter (B : Type). *)
 Parameter (R : forall A, A -> A -> Prop).
 (* Parameter (Q : B -> B -> Prop). *)
    Typeclasses eauto := debug.
-(* Instance ReflexiveR (A : Type) : *)
-(*   Reflexive (A := A) (@R A). *)
-(* Admitted. *)
+Instance ReflexiveR (A : Type) :
+  Reflexive (A := A) (@R A).
+Admitted.
   Set Typeclasses Debug Verbosity 100.
   Hint Resolve Reflexive_JMeq : typeclass_instances.
-  Hint Extern 1 => apply Reflexive_JMeq : typeclass_instances.
+  Hint Extern  10 (?a ≅ ?a) => apply (Reflexive_JMeq a) : typeclass_instances.
 Goal (forall A (a : A), a ≅ a).
   intros.
+  kreflexivity.
   Check (JMeq a).
   change ((fun x y => @JMeq A x A y) a a).
   set 
   rewrite lock
-  reflexivity.
   pattern a.
   reflexivity.
        reflexivity.

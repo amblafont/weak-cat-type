@@ -36,29 +36,55 @@ Record isOmegaCategory (G : GType) (d : Decl) :=
         ⟦ WS_sb wΓ wΔ wσ wδ ⟧S wΓ wE γ = ⟦ wδ ⟧S _ wE (⟦ wσ ⟧S wΓ wΔ γ);
 *)
     (* inutile car déjà compris dans la syntaxe non ? il suffit de l'imposer pour coh en fait *)
-    sb_dTm : forall Γ Δ σ A t (wΓ : WC Γ)(wΔ : WC Δ)(wσ: Γ ⊢ σ ⇒ Δ)(wA : Δ ⊢ A)
-               (wAσ : Γ ⊢ A.[σ]T)
-               (wt : Δ ⊢ t : A)(wtσ : Γ ⊢ t.[σ]t : A.[σ]T)
-              (γ : dC wΓ),
-        ⟦ wtσ ⟧t wAσ γ
-        ≅ ⟦ wt ⟧t wA (⟦ wσ ⟧S wΓ wΔ γ);
+    (* redondant with dTm using the identity substitution *)
+    dcoh_full : forall Γ A (wΓ : Γ ⊢) (wA : Γ ⊢ A),
+        ([ FVC Γ ~ FVT A ])%fv ->
+             forall (γ : ⟦ wΓ ⟧C), ∣ ⟦ wA ⟧T γ ∣ ;
+    dcoh_ar : forall Γ A t u (wΓ : Γ ⊢) (wA : Γ ⊢ A)
+         (war: Γ ⊢ t →⟨ A ⟩ u),
+                               Γ ⊢ t : A -> Γ ⊢ u : A ->
+                         ([ FV ∂+ Γ ~ FVt t ])%fv ->
+                         ([ FV ∂- Γ ~ FVt u ])%fv ->
+             forall (γ : ⟦ wΓ ⟧C), ∣ ⟦ war ⟧T γ ∣ ;
+    dcoh_full_sb : forall Γ A (wΓ : Γ ⊢) (wA : Γ ⊢ A)
+                     Δ σ (wΔ : Δ ⊢) (wσ : Δ ⊢ σ  ⇒ Γ)  (wAσ : Δ ⊢ A.[σ]T)
+                     (eq_fv : ([ FVC Γ ~ FVT A ])%fv) (δ : ⟦ wΔ ⟧C),
+        dcoh_full  wA eq_fv (⟦ wσ ⟧S wΔ wΓ δ)
+        ≅ ⟦ w_coh_full wΓ wA wσ eq_fv ⟧t
+                                       (wAσ : Δ ⊢ A.[σ]T) δ
+          ;
+    dcoh_ar_sb : forall Γ A t u (wΓ : Γ ⊢) (wA : Γ ⊢ A)
+         (war: Γ ⊢ t →⟨ A ⟩ u)
+         Δ σ (wΔ : Δ ⊢) (wσ : Δ ⊢ σ  ⇒ Γ)  (warσ : Δ ⊢ t.[σ]t →⟨ A.[σ]T ⟩ u.[σ]t)
+              (wt : Γ ⊢ t : A) (wu : Γ ⊢ u : A) 
+              (efvt : ([ FV ∂+ Γ ~ FVt t ])%fv)
+              (efvu : ([ FV ∂- Γ ~ FVt u ])%fv)
+    (δ : ⟦ wΔ ⟧C),
+        dcoh_ar  wA war wt wu efvt efvu (⟦ wσ ⟧S wΔ wΓ δ)
+        ≅ ⟦ w_coh_ar wΓ wA wσ wt wu efvt efvu ⟧t warσ δ
+    ;
+    (* dcoh_sb : forall Γ Δ σ A (wΓ : Γ ⊢)(wΔ : Δ ⊢)(wA : Γ ⊢ A)(wσ : Δ ⊢ σ ⇒ Γ) *)
+    (*             (δ : ⟦ wΔ ⟧C), *)
+    (*     dcoh wA (⟦ wσ ⟧S wΔ wΓ δ) *)
+    (*     ≅ ⟦ w_coh wΓ wA wσ ⟧t (WTy_sb wΔ wΓ wσ wA : Δ ⊢ A.[σ]T) δ; *)
+    
 
-    dTm_vstar : forall (γ : ⟦ w_astar ⟧C), ⟦ w_vstar ⟧V (w_star w_astar) γ ≅ γ;
-    dTm_v1 : forall Γ A u (wΓ : WC Γ) (wA : Γ ⊢ A) (wu : Γ ⊢_v u : A)(wu_ps : Γ ⊢_ps u : A)
+    dV_vstar : forall (γ : ⟦ w_astar ⟧C), ⟦ w_vstar ⟧V (w_star w_astar) γ ≅ γ;
+    dV_v1 : forall Γ A u (wΓ : WC Γ) (wA : Γ ⊢ A) (wu : Γ ⊢_v u : A)(wu_ps : Γ ⊢_ps u : A)
                (wAe : ext Γ A (va u) ⊢ wkT A)
                (γ : ⟦ w_ext wΓ wA wu wu_ps ⟧C)
                (γ2 : ⟦ wΓ ⟧C) (sa : ∣ ⟦ wA ⟧T γ2 ∣)
                (sf : ∣ hom sa (⟦ wu ⟧V wA γ2) ∣),
         γ ≅ (((γ2 ,Σ sa) ,Σ sf) : extΣ_G  _) ->
         ⟦ w_v1 (w_va wu) ⟧V wAe γ ≅ sa;
-    dTm_v0 : forall Γ A u (wΓ : WC Γ) (wA : Γ ⊢ A) (wu : Γ ⊢_v u : A)(wu_ps : Γ ⊢_ps u : A)
+    dV_v0 : forall Γ A u (wΓ : WC Γ) (wA : Γ ⊢ A) (wu : Γ ⊢_v u : A)(wu_ps : Γ ⊢_ps u : A)
                (wAe : ext Γ A (va u) ⊢ wkT A)(wue : ext Γ A (va u) ⊢_v vwk u : wkT A)
                (γ : ⟦ w_ext wΓ wA wu wu_ps ⟧C)
                (γ2 : ⟦ wΓ ⟧C) (sa : ∣ ⟦ wA ⟧T γ2 ∣)
                (sf : ∣ hom sa (⟦ wu ⟧V wA γ2) ∣),
         γ ≅ (((γ2 ,Σ sa) ,Σ sf) : extΣ_G  _) ->
         ⟦ w_v0 (w_va wu) ⟧V (w_ar wAe (w_va (w_v1 (w_va wu))) (w_va wue)) γ ≅ sf;
-    dTm_vwk : forall Γ A u B x (wΓ : WC Γ) (wA : Γ ⊢ A) (wu : Γ ⊢_v u : A)
+    dV_vwk : forall Γ A u B x (wΓ : WC Γ) (wA : Γ ⊢ A) (wu : Γ ⊢_v u : A)
                 (wu_ps : Γ ⊢_ps u : A)
                 (wB : Γ ⊢ B)
                 (wBe : ext Γ A (va u) ⊢ wkT B)

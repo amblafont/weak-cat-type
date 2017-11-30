@@ -100,7 +100,10 @@ vérifiant la relation fonctionelle *)
 Ltac clear_jmsigma' := clear_jmsigma.
 
 Lemma type_is_omega (T : Type) (fibT : Fib T) : isOmegaGroupoid (G_of_T T) (typDecl fibT).
-  constructor.
+  unshelve econstructor.
+  - (* the coherence *)
+    move => Γ A wΓ wA γ.
+    apply coh_in_ctx.
   - reflexivity.
   - move => Γ A u wΓ wA wu.
     cbn -[semt semT semC].
@@ -142,16 +145,20 @@ Lemma type_is_omega (T : Type) (fibT : Fib T) : isOmegaGroupoid (G_of_T T) (typD
     repeat (erewrite (uip _ erefl);cbn).
     reflexivity.
   - intros.
-    move:γ .
+    move:δ .
     cbn -[semt semT semC].
     move:(semC _ _) => fΓ.
     move:(semC _ _) => fΔ.
     move:(semT _ _ _) => fAσ.
     move:(semT _ _ _) => fA.
-    move:(semt _ _ _ _) => ftσ.
-    move:(semt _ _ _ _) => ft.
+    move:(semt _ _ _ _) => fcoh.
     move:(semS _ _ _ _) => fσ.
-    destruct fAσ,fA,ftσ,ft,fσ ; simpl in *.
+    move/(ft_r):(fcoh) => I.
+    inversion I; subst; repeat clear_hprop; repeat (clear_jmsigma'; subst).
+    destruct fΓ,fΔ,fAσ,fA,fcoh,fσ ; simpl in *.
+    repeat (move:(e in transport e) => /= ?; subst => /=;
+    repeat (clear_jmsigma'; subst)).
+    cbn.
     repeat (move:(e in transport e) => /= e; (destruct e || subst) => /=).
     repeat (move:(e in transport2 e) => /= e; (destruct e || subst) => /=).
     repeat (
@@ -159,28 +166,8 @@ Lemma type_is_omega (T : Type) (fibT : Fib T) : isOmegaGroupoid (G_of_T T) (typD
       repeat (erewrite (uip _ erefl);cbn);
       clear e).
 
-    have h:ft_T = r_sbT fS_S ft_T0.
-    {
-      apply:π_eq_pTη.
-      apply:rl_hpT; try eassumption.
-      (apply:tp_rT1; first by reflexivity); last first.
-      apply:rl_sbT.
-      eassumption.
-      eassumption.
-      reflexivity.
-      }
-    subst.
-    have h:ft_t = r_sbt fS_S ft_t0.
-    {
-      apply:π_eq_ptη.
-      apply:rl_hpt; try eassumption.
-      (apply:tp_rTm1; first by reflexivity); last first.
-      apply:rl_sbt.
-      exact:ft_r0.
-      eassumption.
-      reflexivity.
-      }
-    now subst.
+    repeat (clear_rc; subst).
+    intro; apply:JMeq_refl.
   - cbn -[semt semT semC].
     move:(semC _ _) => fastar.
     move:(semT _ _ _) => fstar.
