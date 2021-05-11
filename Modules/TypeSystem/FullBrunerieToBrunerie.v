@@ -1,7 +1,7 @@
 (* We make a translation from full brunerie (any ctx) to brunerie *)
 Require Import ssreflect ssrfun ssrbool .
 
-From Modules Require Import HomotopicalEquality untypeduippackrl TypesAreOmegaGroupoids.FunctionalRelation lib PreSyntaxOnlyContr .
+From Modules Require Import HomotopicalEquality TypesAreOmegaGroupoids.FunctionalRelation lib PreSyntaxOnlyContr .
 From Modules Require Import WfSyntaxBrunerieOnlyContr.
 (* gtype decl omegagroupoids fullomegagroupoids. *)
 From Modules Require Import WfSyntaxBrunerieAllCtx.
@@ -66,20 +66,21 @@ Fixpoint tradV Γ A x (wx : SF_WVar Γ A x) : SB.Var.
    exact:vstar.
  - (* cas v0 *)
 *)
+
+Ltac exfalsoinvert h := exfalso; inversion h.
     
 Fixpoint tradC (Γ : FB.Con)  (isC : isContr Γ) (wΓ: FB.WC Γ) : SS.Con
 with tradTy (Γ : FB.Con) (A : FB.Ty) (wA : FB.WTy Γ A) : SS.Ty
 with tradTm (Γ : FB.Con) A (t : FB.Tm) (wt : FB.Wtm Γ A t) : SS.Tm
 with tradS Γ (Δ : FB.Con) (σ : FB.sub) (wσ : FB.WS Γ Δ σ) : SS.sub.
-- destruct wΓ.
-  + by exfalso.
+- destruct wΓ as [| ? ? ? wA].
+  + by exfalsoinvert isC.
   + destruct wΓ.
-    * destruct A; last by exfalso.
+    * destruct A ; last by exfalsoinvert isC.
       exact:astar.
-    * destruct A; first by exfalso.
-      destruct t; last by exfalso.
-      destruct x; last by exfalso.
-      simpl in isC.
+    * destruct A; first by exfalsoinvert isC.
+      destruct t; last by  exfalsoinvert isC.
+      destruct x; last by  exfalsoinvert isC.
       apply:SS.ext.
     -- apply:(tradC _  (snd isC)) => //.
     (* apply:isContr_WC => //. *)

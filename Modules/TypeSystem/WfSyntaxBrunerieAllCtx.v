@@ -214,9 +214,9 @@ with WS : Con -> Con -> sub -> Type :=
                                 WS Γ (ext Δ A) (to_ext σ t ).
 
 
-Lemma isContr_ext_inv Γ A u  (P : forall  : isContr (ext Γ A u)
+(* Lemma isContr_ext_inv Γ A u  (P : forall  : isContr (ext Γ A u) *)
 (*
-Record r_isContr Γ A u :=
+record r_isContr Γ A u :=
   { isC_u : Tm;
     isC_eu : u = wkt isC_u ;
     isC_rec : isContr Γ;
@@ -229,7 +229,7 @@ Fixpoint isContr_fix (Γ : Con) : Type :=
 | _ => False
   end.
 *)
-Instance syntax : Syntax := Build_Syntax WC WTy Wtm WS.
+Instance syntax : Syntax preSyntax := Build_Syntax WC WTy Wtm WS.
 
 (*
 Lemma isContr_WC Γ (isC : isContr Γ) : WC Γ.

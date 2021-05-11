@@ -18,6 +18,8 @@ Class Decl {P : PreSyntax} {S : Syntax P} :=
             dC wΔ
   }.
 
+Arguments dS {P S Decl} [Γ Δ σ].
+
 Definition extΣ_G (Γ : Type) (A : Γ -> GType) (u : forall γ, ∣ A γ ∣) :=
   { δ : { γ : Γ & ∣ A γ ∣ } & ∣ hom δ..2 (u δ..1) ∣ }.
 
